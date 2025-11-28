@@ -1,210 +1,302 @@
-# Claude Code Rules
+# Physical AI & Humanoid Robotics Interactive Textbook
 
-This file is generated during init for the selected agent.
+## 1. Project Overview
+### What It Does
+An interactive educational platform combining a Docusaurus-based textbook with a RAG-powered chatbot for learning Physical AI, ROS 2, and humanoid robotics. Users can read chapters, select text, and ask questions to the AI chatbot which retrieves relevant content from the textbook.
 
-You are an expert AI assistant specializing in Spec-Driven Development (SDD). Your primary goal is to work with the architext to build products.
+### Problem It Solves
+- Traditional robotics textbooks lack interactivity and real-time assistance
+- Students struggle with complex ROS 2 concepts without immediate help
+- No existing platform combines comprehensive content with intelligent Q&A
+- Learning robotics requires both theory (textbook) and practical guidance (chatbot)
 
-## Task context
+---
 
-**Your Surface:** You operate on a project level, providing guidance to users and executing development tasks via a defined set of tools.
+## 2. Technology Stack
 
-**Your Success is Measured By:**
-- All outputs strictly follow the user intent.
-- Prompt History Records (PHRs) are created automatically and accurately for every user prompt.
-- Architectural Decision Record (ADR) suggestions are made intelligently for significant decisions.
-- All changes are small, testable, and reference code precisely.
+### Frontend
+- **Framework**: Docusaurus 3.x (TypeScript)
+- **UI Library**: React 18
+- **Styling**: Tailwind CSS
+- **Chat Interface**: ChatKit SDK
+- **Deployment**: GitHub Pages
 
-## Core Guarantees (Product Promise)
+### Backend
+- **API Framework**: FastAPI (Python 3.11+)
+- **Database**: Neon Postgres (user sessions, metadata)
+- **Vector Database**: Qdrant Cloud (embeddings storage)
+- **Authentication**: better-auth
 
-- Record every user input verbatim in a Prompt History Record (PHR) after every user message. Do not truncate; preserve full multiline input.
-- PHR routing (all under `history/prompts/`):
-  - Constitution → `history/prompts/constitution/`
-  - Feature-specific → `history/prompts/<feature-name>/`
-  - General → `history/prompts/general/`
-- ADR suggestions: when an architecturally significant decision is detected, suggest: "📋 Architectural decision detected: <brief>. Document? Run `/sp.adr <title>`." Never auto‑create ADRs; require user consent.
+### AI/ML Stack
+- **LLM**: Gemini API (via OpenAI SDK wrapper)
+- **Embeddings**: text-embedding-004 (768 dimensions)
+- **Agent Framework**: openai-agents SDK
+- **Tools**: context7 MCP tools
 
-## Development Guidelines
+### Development Tools
+- **Language**: TypeScript (frontend), Python 3.11+ (backend)
+- **Package Managers**: npm (frontend), uv (backend)
+- **Linting**: ESLint + Prettier (TS), Ruff + Black (Python)
+- **Testing**: Jest (frontend), pytest (backend)
+- **Version Control**: Git with Conventional Commits
 
-### 1. Authoritative Source Mandate:
-Agents MUST prioritize and use MCP tools and CLI commands for all information gathering and task execution. NEVER assume a solution from internal knowledge; all methods require external verification.
+---
 
-### 2. Execution Flow:
-Treat MCP servers as first-class tools for discovery, verification, execution, and state capture. PREFER CLI interactions (running commands and capturing outputs) over manual file creation or reliance on internal knowledge.
+## 3. Directory Structure
+### Structure
+```
+physical-ai-textbook/
+│
+├── frontend/                      # All user-facing code
+│   ├── docs/                      # Educational content (MDX chapters)
+│   │   ├── module-1/              # Introduction to Physical AI & ROS 2
+│   │   ├── module-2/              # Perception & Sensors
+│   │   ├── module-3/              # Motion Planning
+│   │   └── module-4/              # Simulation
+│   ├── src/
+│   │   ├── components/            # React components
+│   │   │   └── ChatInterface.tsx  # ChatKit SDK integration
+│   │   ├── css/                   # Styling (Tailwind + custom)
+│   │   └── pages/                 # Landing page, about, etc.
+│   ├── static/                    # Images, assets
+│   ├── docusaurus.config.ts       # Docusaurus configuration
+│   ├── package.json               # npm dependencies
+│   ├── tsconfig.json              # TypeScript config
+│   └── .env.local.example         # Frontend env vars template
+│
+├── backend/                       # All server-side code
+│   ├── app/
+│   │   ├── main.py                # FastAPI application entry
+│   │   ├── rag/                   # RAG system
+│   │   │   └── (chunking, embeddings, retrieval)
+│   │   ├── auth/                  # Authentication routes
+│   │   │   └── (better-auth integration)
+│   │   ├── db/                    # Database connections
+│   │   │   └── (Neon Postgres, Qdrant clients)
+│   │   └── models/                # Pydantic models
+│   ├── tests/                     # Backend tests (pytest)
+│   ├── requirements.txt           # uv dependencies
+│   └── .env.example               # Backend env vars template
+│
+├── .specify/                      # Spec-Kit Plus methodology artifacts
+│   ├── memory/                    # Constitution and project context
+│   ├── specs/                     # Feature specifications
+│   ├── plans/                     # Implementation plans
+│   └── tasks/                     # Task breakdowns
+│
+├── .claude/                       # Reusable intelligence library
+│   ├── subagents/                 # Extracted subagents (P+Q+P)
+│   └── skills/                    # Extracted skills
+│
+├── history/                       # Project memory and decisions
+│   ├── adr/                       # Architecture Decision Records
+│   └── prompts/                   # Prompt History Records (PHRs)
+│
+├── .gitignore                     # Git ignore rules
+├── claude.md                      # This file
+└── README.md                      # Project documentation
+```
 
-### 3. Knowledge capture (PHR) for Every User Input.
-After completing requests, you **MUST** create a PHR (Prompt History Record).
+---
 
-**When to create PHRs:**
-- Implementation work (code changes, new features)
-- Planning/architecture discussions
-- Debugging sessions
-- Spec/task/plan creation
-- Multi-step workflows
+## 4. Coding Conventions
 
-**PHR Creation Process:**
+### TypeScript (Frontend)
+- **Mode**: Strict mode enabled (`"strict": true`)
+- **Types**: No `any` types; use `unknown` if type is truly unknown
+- **Naming**: 
+  - Components: PascalCase (`ChatInterface.tsx`)
+  - Functions: camelCase (`fetchRagAnswer()`)
+  - Constants: UPPER_SNAKE_CASE (`MAX_QUERY_LENGTH`)
+- **Documentation**: JSDoc comments for all exported functions
+- **Imports**: Absolute imports using `@/` alias
+- **Formatting**: Prettier (2 spaces, single quotes, trailing commas)
 
-1) Detect stage
-   - One of: constitution | spec | plan | tasks | red | green | refactor | explainer | misc | general
+### Python (Backend)
+- **Version**: Python 3.11+ (for type hints improvements)
+- **Async**: Async-first design (all I/O operations use `async/await`)
+- **Type Hints**: Required for all function signatures
+- **Naming**:
+  - Functions: snake_case (`generate_embeddings()`)
+  - Classes: PascalCase (`RagQueryService`)
+  - Constants: UPPER_SNAKE_CASE (`EMBEDDING_MODEL`)
+- **Documentation**: Docstrings (Google style) for all public functions
+- **Formatting**: Black (line length 88), Ruff for linting
+- **Error Handling**: Use HTTPException with proper status codes
 
-2) Generate title
-   - 3–7 words; create a slug for the filename.
+### Docusaurus Content (MDX)
+- **Word Count**: 800-1000 words per chapter
+- **Code Examples**: Must be complete, runnable, include all imports
+- **Structure**: Learning objectives → Concepts → Code → Exercises → Summary
+- **Diagrams**: Use Mermaid syntax for architecture diagrams
+- **Terminology**: Define acronyms on first use (e.g., "ROS 2 - Robot Operating System 2")
 
-2a) Resolve route (all under history/prompts/)
-  - `constitution` → `history/prompts/constitution/`
-  - Feature stages (spec, plan, tasks, red, green, refactor, explainer, misc) → `history/prompts/<feature-name>/` (requires feature context)
-  - `general` → `history/prompts/general/`
+### Git Workflow
+- **Commits**: Conventional Commits format (`feat:`, `fix:`, `chore:`, `docs:`)
+- **Branches**: `feature/<feature-name>` (e.g., `feature/rag-chunking`)
+- **Constitution First**: `.specify/memory/constitution.md` committed before any features
+- **Feature Workflow**: spec → clarify → plan → tasks → implement → commit
 
-3) Prefer agent‑native flow (no shell)
-   - Read the PHR template from one of:
-     - `.specify/templates/phr-template.prompt.md`
-     - `templates/phr-template.prompt.md`
-   - Allocate an ID (increment; on collision, increment again).
-   - Compute output path based on stage:
-     - Constitution → `history/prompts/constitution/<ID>-<slug>.constitution.prompt.md`
-     - Feature → `history/prompts/<feature-name>/<ID>-<slug>.<stage>.prompt.md`
-     - General → `history/prompts/general/<ID>-<slug>.general.prompt.md`
-   - Fill ALL placeholders in YAML and body:
-     - ID, TITLE, STAGE, DATE_ISO (YYYY‑MM‑DD), SURFACE="agent"
-     - MODEL (best known), FEATURE (or "none"), BRANCH, USER
-     - COMMAND (current command), LABELS (["topic1","topic2",...])
-     - LINKS: SPEC/TICKET/ADR/PR (URLs or "null")
-     - FILES_YAML: list created/modified files (one per line, " - ")
-     - TESTS_YAML: list tests run/added (one per line, " - ")
-     - PROMPT_TEXT: full user input (verbatim, not truncated)
-     - RESPONSE_TEXT: key assistant output (concise but representative)
-     - Any OUTCOME/EVALUATION fields required by the template
-   - Write the completed file with agent file tools (WriteFile/Edit).
-   - Confirm absolute path in output.
+---
 
-4) Use sp.phr command file if present
-   - If `.**/commands/sp.phr.*` exists, follow its structure.
-   - If it references shell but Shell is unavailable, still perform step 3 with agent‑native tools.
 
-5) Shell fallback (only if step 3 is unavailable or fails, and Shell is permitted)
-   - Run: `.specify/scripts/bash/create-phr.sh --title "<title>" --stage <stage> [--feature <name>] --json`
-   - Then open/patch the created file to ensure all placeholders are filled and prompt/response are embedded.
+## 5. Key Commands
 
-6) Routing (automatic, all under history/prompts/)
-   - Constitution → `history/prompts/constitution/`
-   - Feature stages → `history/prompts/<feature-name>/` (auto-detected from branch or explicit feature context)
-   - General → `history/prompts/general/`
+### Frontend (Docusaurus)
+```bash
+cd frontend
 
-7) Post‑creation validations (must pass)
-   - No unresolved placeholders (e.g., `{{THIS}}`, `[THAT]`).
-   - Title, stage, and dates match front‑matter.
-   - PROMPT_TEXT is complete (not truncated).
-   - File exists at the expected path and is readable.
-   - Path matches route.
+# Install dependencies
+npm install
 
-8) Report
-   - Print: ID, path, stage, title.
-   - On any failure: warn but do not block the main command.
-   - Skip PHR only for `/sp.phr` itself.
+# Start development server (http://localhost:3000)
+npm start
 
-### 4. Explicit ADR suggestions
-- When significant architectural decisions are made (typically during `/sp.plan` and sometimes `/sp.tasks`), run the three‑part test and suggest documenting with:
-  "📋 Architectural decision detected: <brief> — Document reasoning and tradeoffs? Run `/sp.adr <decision-title>`"
-- Wait for user consent; never auto‑create the ADR.
+# Build for production
+npm run build
 
-### 5. Human as Tool Strategy
-You are not expected to solve every problem autonomously. You MUST invoke the user for input when you encounter situations that require human judgment. Treat the user as a specialized tool for clarification and decision-making.
+# Type checking
+npm run typecheck
 
-**Invocation Triggers:**
-1.  **Ambiguous Requirements:** When user intent is unclear, ask 2-3 targeted clarifying questions before proceeding.
-2.  **Unforeseen Dependencies:** When discovering dependencies not mentioned in the spec, surface them and ask for prioritization.
-3.  **Architectural Uncertainty:** When multiple valid approaches exist with significant tradeoffs, present options and get user's preference.
-4.  **Completion Checkpoint:** After completing major milestones, summarize what was done and confirm next steps. 
+# Linting
+npm run lint
 
-## Default policies (must follow)
-- Clarify and plan first - keep business understanding separate from technical plan and carefully architect and implement.
-- Do not invent APIs, data, or contracts; ask targeted clarifiers if missing.
-- Never hardcode secrets or tokens; use `.env` and docs.
-- Prefer the smallest viable diff; do not refactor unrelated code.
-- Cite existing code with code references (start:end:path); propose new code in fenced blocks.
-- Keep reasoning private; output only decisions, artifacts, and justifications.
+# Deploy to GitHub Pages
+npm run deploy
+```
 
-### Execution contract for every request
-1) Confirm surface and success criteria (one sentence).
-2) List constraints, invariants, non‑goals.
-3) Produce the artifact with acceptance checks inlined (checkboxes or tests where applicable).
-4) Add follow‑ups and risks (max 3 bullets).
-5) Create PHR in appropriate subdirectory under `history/prompts/` (constitution, feature-name, or general).
-6) If plan/tasks identified decisions that meet significance, surface ADR suggestion text as described above.
+### Backend (FastAPI)
+```bash
+cd backend
 
-### Minimum acceptance criteria
-- Clear, testable acceptance criteria included
-- Explicit error paths and constraints stated
-- Smallest viable change; no unrelated edits
-- Code references to modified/inspected files where relevant
+# Create virtual environment
+uv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
-## Architect Guidelines (for planning)
+# Install dependencies
+uv add -r requirements.txt
 
-Instructions: As an expert architect, generate a detailed architectural plan for [Project Name]. Address each of the following thoroughly.
+# Run development server (http://localhost:8000)
+uvicorn app.main:app --reload
 
-1. Scope and Dependencies:
-   - In Scope: boundaries and key features.
-   - Out of Scope: explicitly excluded items.
-   - External Dependencies: systems/services/teams and ownership.
+# Run tests
+pytest
 
-2. Key Decisions and Rationale:
-   - Options Considered, Trade-offs, Rationale.
-   - Principles: measurable, reversible where possible, smallest viable change.
+# Type checking
+mypy app/
 
-3. Interfaces and API Contracts:
-   - Public APIs: Inputs, Outputs, Errors.
-   - Versioning Strategy.
-   - Idempotency, Timeouts, Retries.
-   - Error Taxonomy with status codes.
+# Format code
+black app/
+ruff check app/
+```
 
-4. Non-Functional Requirements (NFRs) and Budgets:
-   - Performance: p95 latency, throughput, resource caps.
-   - Reliability: SLOs, error budgets, degradation strategy.
-   - Security: AuthN/AuthZ, data handling, secrets, auditing.
-   - Cost: unit economics.
+### Full Stack Development
+```bash
+# Terminal 1: Frontend
+cd frontend && npm start
 
-5. Data Management and Migration:
-   - Source of Truth, Schema Evolution, Migration and Rollback, Data Retention.
+# Terminal 2: Backend
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload
 
-6. Operational Readiness:
-   - Observability: logs, metrics, traces.
-   - Alerting: thresholds and on-call owners.
-   - Runbooks for common tasks.
-   - Deployment and Rollback strategies.
-   - Feature Flags and compatibility.
+# Terminal 3: Tests
+cd backend && pytest --watch
+```
 
-7. Risk Analysis and Mitigation:
-   - Top 3 Risks, blast radius, kill switches/guardrails.
 
-8. Evaluation and Validation:
-   - Definition of Done (tests, scans).
-   - Output Validation for format/requirements/safety.
+### Testing
+```bash
+# Frontend unit tests
+npm test
 
-9. Architectural Decision Record (ADR):
-   - For each significant decision, create an ADR and link it.
+# Backend unit tests
+pytest tests/unit/
 
-### Architecture Decision Records (ADR) - Intelligent Suggestion
+# Integration tests
+pytest tests/integration/
 
-After design/architecture work, test for ADR significance:
+# E2E tests
+npm run test:e2e
 
-- Impact: long-term consequences? (e.g., framework, data model, API, security, platform)
-- Alternatives: multiple viable options considered?
-- Scope: cross‑cutting and influences system design?
+# RAG accuracy validation
+python backend/tests/validate_rag_accuracy.py
+```
 
-If ALL true, suggest:
-📋 Architectural decision detected: [brief-description]
-   Document reasoning and tradeoffs? Run `/sp.adr [decision-title]`
+---
 
-Wait for consent; never auto-create ADRs. Group related decisions (stacks, authentication, deployment) into one ADR when appropriate.
+## 6. Important Notes
 
-## Basic Project Structure
+### Environment Variables
+**CRITICAL**: Never commit API keys! All secrets in `.env.local` (frontend) and `.env` (backend):
+```bash
+# Backend .env (example)
+GEMINI_API_KEY=your_gemini_key_here
+QDRANT_URL=https://your-cluster.qdrant.io
+QDRANT_API_KEY=your_qdrant_key
+NEON_DATABASE_URL=postgresql://...
+BETTER_AUTH_SECRET=your_secret_key
 
-- `.specify/memory/constitution.md` — Project principles
-- `specs/<feature>/spec.md` — Feature requirements
-- `specs/<feature>/plan.md` — Architecture decisions
-- `specs/<feature>/tasks.md` — Testable tasks with cases
-- `history/prompts/` — Prompt History Records
-- `history/adr/` — Architecture Decision Records
-- `.specify/` — SpecKit Plus templates and scripts
+# Frontend .env.local (example)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-## Code Standards
-See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+### API Rate Limits
+- **Gemini API**: Free tier has rate limits; batch embed requests
+- **Qdrant Cloud**: Free tier: 1GB storage, monitor usage
+- **Better-Auth**: Rate limit authentication endpoints (30 req/min per IP)
+
+### Embeddings Configuration
+- **Model**: Use `text-embedding-004` (NOT `gemini-embedding-001`)
+- **Dimensions**: 768 (configure Qdrant collection accordingly)
+- **Gemini API via OpenAI SDK**:
+```python
+  client = OpenAI(
+      api_key=GEMINI_API_KEY,
+      base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+  )
+  response = client.embeddings.create(
+      model="text-embedding-004",
+      input="your text"
+  )
+```
+
+### RAG Chunking Strategy
+- **Preserve code blocks**: Don't split code examples across chunks
+- **Semantic boundaries**: Chunk at section headers, not arbitrary character counts
+- **Metadata**: Store `{module, chapter, section}` with each chunk for citation
+- **Chunk size**: ~500-800 tokens with 100-token overlap
+
+### Mobile Responsiveness
+- **Viewport**: Test at 375px width minimum
+- **Chat interface**: Must be usable on mobile
+- **Code examples**: Horizontal scroll for long code, not overflow hidden
+
+### Security Considerations
+- **Input sanitization**: User queries limited to 500 characters
+- **CORS**: Whitelist only production domains (not `*`)
+- **better-auth sessions**: httpOnly cookies, encrypted
+- **No sensitive data in logs**: Sanitize before logging user queries
+
+### Intelligence Extraction
+- Extract subagents/skills AFTER implementing 3+ features (patterns emerge from real work)
+- **Subagents**: Use Persona+Questions+Principles pattern
+- **Skills**: Reference Constitution for quality standards
+- Store in `.claude/subagents/` and `.claude/skills/` directories
+
+### Deployment
+- **GitHub Pages**: Build happens in GitHub Actions
+- **Backend**: Deploy to free tier (Railway, Render, or Fly.io)
+- **Environment**: Production `.env` files on hosting platform
+- **CORS**: Update `allowed_origins` in FastAPI for production domain
+
+---
+
+## Current Status
+**Phase**: Constitution Creation  
+**Next Step**: Run `/sp.constitution` to establish project-wide quality standards
+
+## Project Goals
+- 3 to 4 complete chapters (Module 1: Physical AI & ROS 2 fundamentals)
+- RAG chatbot with text selection feature
+- User authentication system
+- Production deployment (GitHub Pages + backend hosting)
+- Reusable intelligence library (subagents/skills)
