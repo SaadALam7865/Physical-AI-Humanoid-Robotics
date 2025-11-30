@@ -7,7 +7,7 @@
 const API_BASE_URL =
   typeof window !== 'undefined' && window.location.hostname === 'localhost'
     ? 'http://localhost:8000'
-    : 'https://your-backend-url.com'; // TODO: Update for production
+    : 'https://physical-ai-humanoid-robotics-production.up.railway.app';
 
 export interface ChatRequest {
   query: string;
