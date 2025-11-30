@@ -1,0 +1,92 @@
+---
+id: embodied-intelligence-intro
+title: When AI Gets Hands
+description: Introduction to Physical AI and the transition from language models to embodied robots that understand physical reality.
+sidebar_position: 0
+keywords: [Physical AI, embodied intelligence, humanoid robotics, ROS 2, NVIDIA Jetson]
+---
+
+# When AI Gets Hands
+
+## The Transition from ChatGPT to Physical Reality
+
+You've used ChatGPT. You've marveled at Claude writing code. You've seen Midjourney generate art from text prompts. These are examples of **Digital AI**—intelligence that lives in data centers, processing tokens and pixels but never touching the physical world.
+
+Now imagine giving that intelligence **hands**.
+
+Not metaphorical hands. Real actuators. Motors that grip, legs that walk, cameras that see depth. Intelligence that doesn't just **know** what "heavy" means from reading millions of documents, but **feels** resistance when lifting a 20kg weight. This is **Physical AI**—the subject of this textbook.
+
+## What You'll Build by the End of This Course
+
+By the final chapter, you will deploy a perception-action loop on a humanoid robot:
+
+1. **Your Workstation** (RTX 4070 Ti, 64GB RAM, Ubuntu 22.04): Train vision-language-action models in NVIDIA Isaac Sim
+2. **Your Edge Device** (Jetson Orin Nano, 8GB): Run ROS 2 nodes that fuse RGB-D data from Intel RealSense D435i
+3. **Your Robot** (Unitree Go2 or G1): Execute locomotion commands in a real warehouse environment
+
+You'll write Python code that:
+- Subscribes to `/camera/depth/image_raw` from the RealSense
+- Publishes velocity commands to `/cmd_vel` for motor control
+- Uses a VLA (Vision-Language-Action) model to map natural language ("pick up the red box") to joint trajectories
+
+This isn't theory. This is code that moves motors.
+
+## The Hardware-First Philosophy
+
+Traditional robotics courses teach you the math first: quaternion rotations, Denavit-Hartenberg parameters, Kalman filters. You memorize equations, then maybe—if time permits—see a simulation.
+
+We do the opposite. **You will never write a line of code without knowing which hardware component it controls.**
+
+- When you learn about ROS 2 topics, you'll publish to the **actual `/unitree_go2/joint_states`** topic
+- When you implement SLAM, you'll process **real depth frames** from the RealSense D435i (640×480 @ 30 FPS)
+- When you tune a PID controller, you'll feel the **Jetson Orin Nano throttle** under thermal load
+
+Why? Because software that works in Gazebo often **fails catastrophically** on real hardware. Network latency. Sensor noise. Battery voltage drop. Gravity (yes, even gravity is modeled poorly in most simulators).
+
+:::warning Real-World Brutality
+In simulation, your robot's foot placement is perfect. On a real Unitree Go2, a 2mm calibration error in the ankle joint causes the robot to faceplant. We teach you to expect this.
+:::
+
+## Course Structure: The Four-Layer Method
+
+Every chapter follows this pedagogical pattern:
+
+1. **Concept** (`01-concept.mdx`): Build the mental model before touching code
+2. **Lab** (`02-lab.mdx`): Manual implementation using raw ROS 2 CLI commands
+3. **AI Collaboration** (`03-ai-collab.mdx`): Use Claude/ChatGPT to accelerate development
+4. **Sim-to-Real** (`04-sim-to-real.mdx`): Deploy to Jetson and debug hardware issues
+
+You'll notice we don't teach "AI-assisted coding" from day one. That's intentional. You must earn the right to use AI as a force multiplier by first understanding the fundamentals **manually**.
+
+## Who This Textbook Is For
+
+**You should take this course if you:**
+- Have intermediate Python skills (classes, async/await, type hints)
+- Want to deploy AI models on physical robots, not just train them
+- Are comfortable with Linux CLI (Ubuntu 22.04)
+- Own or have access to an NVIDIA GPU (RTX 3060+ recommended)
+
+**You do NOT need:**
+- A robotics degree (we teach ROS 2 from scratch)
+- Prior experience with C++ (Python-only, except when reading Unitree SDK docs)
+- A $50,000 robot (we use the Unitree Go2, which costs ~$2,700)
+
+## What Makes This Textbook Different
+
+1. **Hardware Specificity**: We name exact models (Jetson Orin Nano, not "an edge device")
+2. **Failure Documentation**: We show you what breaks and why (Section 04 of every chapter)
+3. **Industry Alignment**: This course mirrors the tech stack at Figure AI, Tesla Optimus, and 1X Technologies
+4. **RAG-Powered Q&A**: Stuck? Select any text and ask the built-in chatbot (powered by Gemini + Qdrant)
+
+## Let's Begin
+
+In the next section, you'll learn the fundamental distinction between **Digital AI** (brains in boxes) and **Physical AI** (brains in bodies). This isn't just philosophical—it changes how you architect software, choose hardware, and debug failures.
+
+Ready to give AI some hands? Turn the page.
+
+:::tip Quick Check
+Before proceeding, ensure you have:
+- Ubuntu 22.04 installed (WSL2 on Windows works for early chapters)
+- Python 3.11+ (`python3 --version`)
+- At least 20GB free disk space (for ROS 2 Humble + Isaac Sim)
+:::

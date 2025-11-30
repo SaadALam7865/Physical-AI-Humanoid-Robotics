@@ -1,0 +1,798 @@
+---
+id: three-tier-verification
+title: "Three-Tier Verification Test"
+description: "Validate communication between workstation, Jetson, and RealSense camera with a complete ROS 2 integration test."
+sidebar_position: 5
+keywords:
+  - ROS 2 integration
+  - network testing
+  - latency measurement
+  - publisher subscriber
+  - three-tier architecture
+  - system verification
+---
+
+# Three-Tier Verification Test
+
+## Introduction: Proving the Architecture
+
+You've configured three compute tiers independently:
+1. **Workstation**: Isaac Sim + CUDA + ROS 2 Humble
+2. **Jetson Orin Nano**: ROS 2 Humble + TensorRT
+3. **RealSense D435i**: Streaming RGB-D-IMU data
+
+Now we verify they communicate as a **unified system**. This section walks through a complete integration test:
+
+- **Workstation publishes** velocity commands (`/cmd_vel`)
+- **Jetson subscribes** and processes commands (simulating motor control)
+- **RealSense streams** sensor data to both workstation and Jetson
+- **Latency measured**: Round-trip time must be &lt;10ms for real-time control
+
+**Success Criteria**:
+- All nodes discover each other automatically (DDS discovery)
+- Topic data flows bidirectionally
+- Average latency &lt;10ms on local network
+- Zero dropped messages under moderate load
+
+**Time Estimate**: 30-45 minutes.
+
+## Part 1: Network Prerequisite Check
+
+### Verify Same Network
+
+**On Workstation**:
+```bash
+hostname -I
+```
+
+**Expected Output** (example):
+```
+192.168.1.100
+```
+
+**On Jetson**:
+```bash
+hostname -I
+```
+
+**Expected Output** (example):
+```
+192.168.1.150
+```
+
+**Requirement**: Both IPs must be in same subnet (e.g., `192.168.1.x`).
+
+### Verify ROS_DOMAIN_ID Match
+
+**On Workstation**:
+```bash
+echo $ROS_DOMAIN_ID
+```
+
+**On Jetson**:
+```bash
+echo $ROS_DOMAIN_ID
+```
+
+**Both must output the same value** (e.g., `0`). If they differ:
+
+```bash
+# Set to 0 on both machines
+export ROS_DOMAIN_ID=0
+echo "export ROS_DOMAIN_ID=0" >> ~/.bashrc
+```
+
+### Test Ping Connectivity
+
+**From Workstation to Jetson**:
+```bash
+ping -c 4 192.168.1.150
+```
+
+**Expected Output**:
+```
+PING 192.168.1.150 (192.168.1.150) 56(84) bytes of data.
+64 bytes from 192.168.1.150: icmp_seq=1 ttl=64 time=1.23 ms
+64 bytes from 192.168.1.150: icmp_seq=2 ttl=64 time=1.18 ms
+64 bytes from 192.168.1.150: icmp_seq=3 ttl=64 time=1.25 ms
+64 bytes from 192.168.1.150: icmp_seq=4 ttl=64 time=1.20 ms
+
+--- 192.168.1.150 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3004ms
+rtt min/avg/max/mdev = 1.180/1.215/1.250/0.027 ms
+```
+
+**Key Metrics**:
+- **0% packet loss**: Network is stable
+- **Average latency ~1.2ms**: Excellent (wired Ethernet or Wi-Fi 6)
+- If latency >5ms on local network, check for network congestion
+
+## Part 2: Test 1 - Simple Topic Echo
+
+This test verifies basic publish/subscribe across machines.
+
+### Start Publisher on Workstation
+
+**Terminal 1 (Workstation)**:
+```bash
+source /opt/ros/humble/setup.bash
+ros2 topic pub /test_topic std_msgs/msg/String "data: 'Hello from Workstation'" -r 10
+```
+
+**Expected Output**:
+```
+publisher: beginning loop
+publishing #1: std_msgs.msg.String(data='Hello from Workstation')
+publishing #2: std_msgs.msg.String(data='Hello from Workstation')
+...
+```
+
+### Subscribe on Jetson
+
+**Terminal 1 (Jetson, via SSH)**:
+```bash
+source /opt/ros/humble/setup.bash
+ros2 topic echo /test_topic
+```
+
+**Expected Output**:
+```
+data: 'Hello from Workstation'
+---
+data: 'Hello from Workstation'
+---
+```
+
+**Verification**:
+- Messages appear within 100ms of being published
+- No messages are dropped (count should increment continuously)
+
+### Reverse Direction Test
+
+**Terminal 2 (Jetson)**:
+```bash
+ros2 topic pub /jetson_topic std_msgs/msg/String "data: 'Hello from Jetson'" -r 10
+```
+
+**Terminal 2 (Workstation)**:
+```bash
+ros2 topic echo /jetson_topic
+```
+
+**Expected Output**:
+```
+data: 'Hello from Jetson'
+---
+```
+
+:::tip Troubleshooting: No Messages Received
+If subscriber sees nothing after 5 seconds:
+
+1. **Check multicast routing**:
+   ```bash
+   # On both machines
+   ip route | grep 224.0.0.0
+   ```
+   Should show: `224.0.0.0/4 dev wlan0` (or `eth0`)
+
+2. **Disable firewall temporarily**:
+   ```bash
+   sudo ufw disable
+   # Test again, then re-enable: sudo ufw enable
+   ```
+
+3. **Verify ROS_DOMAIN_ID**:
+   ```bash
+   # On both machines
+   echo $ROS_DOMAIN_ID  # Must be identical
+   ```
+:::
+
+## Part 3: Test 2 - Velocity Command Flow
+
+Simulate robot control: Workstation publishes motor commands, Jetson logs them.
+
+### Create Subscriber Node on Jetson
+
+**Create file**: `~/cmd_vel_subscriber.py`
+
+```python
+#!/usr/bin/env python3
+"""
+ROS 2 subscriber for velocity commands.
+Simulates motor controller receiving commands from workstation.
+"""
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
+from typing import Optional
+
+
+class CmdVelSubscriber(Node):
+    """Subscribe to /cmd_vel and log received velocity commands."""
+
+    # Constants
+    TOPIC_NAME: str = "/cmd_vel"
+    QUEUE_SIZE: int = 10
+
+    def __init__(self) -> None:
+        super().__init__('cmd_vel_subscriber')
+
+        # Create subscriber
+        self.subscription = self.create_subscription(
+            Twist,
+            self.TOPIC_NAME,
+            self.velocity_callback,
+            self.QUEUE_SIZE
+        )
+
+        self.get_logger().info(
+            f"Subscribed to {self.TOPIC_NAME}. Waiting for velocity commands..."
+        )
+
+    def velocity_callback(self, msg: Twist) -> None:
+        """
+        Callback for incoming velocity commands.
+
+        Args:
+            msg: Twist message containing linear and angular velocities
+        """
+        self.get_logger().info(
+            f"Received command: "
+            f"linear.x={msg.linear.x:.3f} m/s, "
+            f"angular.z={msg.angular.z:.3f} rad/s"
+        )
+
+
+def main(args: Optional[list] = None) -> None:
+    rclpy.init(args=args)
+    node = CmdVelSubscriber()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+**Make executable**:
+```bash
+chmod +x ~/cmd_vel_subscriber.py
+```
+
+**Run on Jetson**:
+```bash
+python3 ~/cmd_vel_subscriber.py
+```
+
+**Expected Output**:
+```
+[INFO] [1701287345.123456789] [cmd_vel_subscriber]: Subscribed to /cmd_vel. Waiting for velocity commands...
+```
+
+### Publish Commands from Workstation
+
+**Terminal 1 (Workstation)**:
+```bash
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist \
+  "{linear: {x: 0.5, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.3}}" -r 10
+```
+
+**Expected Output on Jetson**:
+```
+[INFO] [1701287346.234567890] [cmd_vel_subscriber]: Received command: linear.x=0.500 m/s, angular.z=0.300 rad/s
+[INFO] [1701287346.334567890] [cmd_vel_subscriber]: Received command: linear.x=0.500 m/s, angular.z=0.300 rad/s
+...
+```
+
+**Verification**:
+- Commands received at 10 Hz (every 100ms)
+- Values match published data exactly
+- Latency &lt;10ms (check timestamps if logging nanosecond precision)
+
+## Part 4: Test 3 - RealSense Data Flow
+
+Verify sensor data streams to both workstation and Jetson simultaneously.
+
+### Start RealSense Node on Jetson
+
+**Terminal 1 (Jetson)**:
+```bash
+source ~/ros2_ws/install/setup.bash
+ros2 launch realsense2_camera rs_launch.py
+```
+
+**Expected Output**:
+```
+[INFO] [realsense2_camera_node]: RealSense ROS v4.55.1
+[INFO] [realsense2_camera_node]: Device Name: Intel RealSense D435I
+[INFO] [realsense2_camera_node]: Publishing topics:
+  /camera/color/image_raw
+  /camera/depth/image_rect_raw
+  /camera/imu
+```
+
+### Monitor Topics on Workstation
+
+**Terminal 1 (Workstation)**:
+```bash
+# List all topics (should show camera topics from Jetson)
+ros2 topic list
+```
+
+**Expected Output**:
+```
+/camera/accel/sample
+/camera/color/camera_info
+/camera/color/image_raw
+/camera/depth/camera_info
+/camera/depth/image_rect_raw
+/camera/gyro/sample
+/camera/imu
+```
+
+**Check RGB Stream Rate**:
+```bash
+ros2 topic hz /camera/color/image_raw
+```
+
+**Expected Output**:
+```
+average rate: 30.014
+    min: 0.032s max: 0.034s std dev: 0.00051s window: 150
+```
+
+**Check Depth Stream Rate**:
+```bash
+ros2 topic hz /camera/depth/image_rect_raw
+```
+
+**Expected Output**:
+```
+average rate: 30.008
+    min: 0.032s max: 0.034s std dev: 0.00048s window: 150
+```
+
+### Visualize in RViz2 on Workstation
+
+**Terminal 2 (Workstation)**:
+```bash
+rviz2
+```
+
+**RViz2 Configuration**:
+1. Set "Fixed Frame" to `camera_link`
+2. Click "Add" → "By topic"
+3. Select `/camera/color/image_raw` → Image
+4. Select `/camera/depth/image_rect_raw` → Image
+5. Resize image panels to view side-by-side
+
+**Expected Behavior**:
+- Live RGB video from Jetson's RealSense appears in RViz2
+- Depth heatmap updates in sync (±1 frame)
+- Frame rate: 30 FPS (check RViz2 status bar)
+
+## Part 5: Test 4 - Latency Measurement
+
+Measure round-trip time for critical control loop: Workstation → Jetson → Workstation.
+
+### Create Latency Test Node (Workstation)
+
+**Create file**: `~/latency_test.py`
+
+```python
+#!/usr/bin/env python3
+"""
+ROS 2 latency measurement tool.
+Publishes timestamped messages and measures round-trip time.
+"""
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Header
+from typing import Optional
+import time
+
+
+class LatencyTester(Node):
+    """Publish timestamped messages and measure round-trip latency."""
+
+    # Constants
+    PUBLISH_TOPIC: str = "/latency_test_out"
+    SUBSCRIBE_TOPIC: str = "/latency_test_in"
+    PUBLISH_RATE_HZ: int = 10
+    QUEUE_SIZE: int = 10
+
+    def __init__(self) -> None:
+        super().__init__('latency_tester')
+
+        # Publisher
+        self.publisher = self.create_publisher(
+            Header,
+            self.PUBLISH_TOPIC,
+            self.QUEUE_SIZE
+        )
+
+        # Subscriber
+        self.subscription = self.create_subscription(
+            Header,
+            self.SUBSCRIBE_TOPIC,
+            self.latency_callback,
+            self.QUEUE_SIZE
+        )
+
+        # Timer for publishing
+        self.timer = self.create_timer(
+            1.0 / self.PUBLISH_RATE_HZ,
+            self.publish_timestamp
+        )
+
+        self.latencies: list = []
+        self.get_logger().info("Latency test started. Waiting for echo node...")
+
+    def publish_timestamp(self) -> None:
+        """Publish current timestamp."""
+        msg = Header()
+        msg.stamp = self.get_clock().now().to_msg()
+        msg.frame_id = "latency_test"
+        self.publisher.publish(msg)
+
+    def latency_callback(self, msg: Header) -> None:
+        """
+        Calculate round-trip latency.
+
+        Args:
+            msg: Header message with original timestamp
+        """
+        now = self.get_clock().now()
+        sent_time = rclpy.time.Time.from_msg(msg.stamp)
+        latency_ns = (now - sent_time).nanoseconds
+        latency_ms = latency_ns / 1_000_000.0
+
+        self.latencies.append(latency_ms)
+
+        self.get_logger().info(
+            f"Round-trip latency: {latency_ms:.2f} ms "
+            f"(avg: {sum(self.latencies)/len(self.latencies):.2f} ms)"
+        )
+
+
+def main(args: Optional[list] = None) -> None:
+    rclpy.init(args=args)
+    node = LatencyTester()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        if node.latencies:
+            avg = sum(node.latencies) / len(node.latencies)
+            min_lat = min(node.latencies)
+            max_lat = max(node.latencies)
+            node.get_logger().info(
+                f"\nLatency Statistics:\n"
+                f"  Average: {avg:.2f} ms\n"
+                f"  Min: {min_lat:.2f} ms\n"
+                f"  Max: {max_lat:.2f} ms\n"
+                f"  Samples: {len(node.latencies)}"
+            )
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+**Make executable**:
+```bash
+chmod +x ~/latency_test.py
+```
+
+### Create Echo Node (Jetson)
+
+**Create file**: `~/latency_echo.py`
+
+```python
+#!/usr/bin/env python3
+"""
+ROS 2 latency echo node.
+Receives messages on one topic, republishes on another.
+"""
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Header
+from typing import Optional
+
+
+class LatencyEcho(Node):
+    """Echo received messages to measure latency."""
+
+    # Constants
+    SUBSCRIBE_TOPIC: str = "/latency_test_out"
+    PUBLISH_TOPIC: str = "/latency_test_in"
+    QUEUE_SIZE: int = 10
+
+    def __init__(self) -> None:
+        super().__init__('latency_echo')
+
+        # Publisher
+        self.publisher = self.create_publisher(
+            Header,
+            self.PUBLISH_TOPIC,
+            self.QUEUE_SIZE
+        )
+
+        # Subscriber
+        self.subscription = self.create_subscription(
+            Header,
+            self.SUBSCRIBE_TOPIC,
+            self.echo_callback,
+            self.QUEUE_SIZE
+        )
+
+        self.get_logger().info("Latency echo node ready.")
+
+    def echo_callback(self, msg: Header) -> None:
+        """
+        Echo received message immediately.
+
+        Args:
+            msg: Header message to echo
+        """
+        self.publisher.publish(msg)
+
+
+def main(args: Optional[list] = None) -> None:
+    rclpy.init(args=args)
+    node = LatencyEcho()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+**Make executable**:
+```bash
+chmod +x ~/latency_echo.py
+```
+
+### Run Latency Test
+
+**Terminal 1 (Jetson)**:
+```bash
+python3 ~/latency_echo.py
+```
+
+**Expected Output**:
+```
+[INFO] [1701287345.123456789] [latency_echo]: Latency echo node ready.
+```
+
+**Terminal 1 (Workstation)**:
+```bash
+python3 ~/latency_test.py
+```
+
+**Expected Output**:
+```
+[INFO] [1701287346.234567890] [latency_tester]: Latency test started. Waiting for echo node...
+[INFO] [1701287346.345678901] [latency_tester]: Round-trip latency: 3.24 ms (avg: 3.24 ms)
+[INFO] [1701287346.445678901] [latency_tester]: Round-trip latency: 3.18 ms (avg: 3.21 ms)
+[INFO] [1701287346.545678901] [latency_tester]: Round-trip latency: 3.31 ms (avg: 3.24 ms)
+...
+```
+
+**Press Ctrl+C after 30 seconds** to see statistics:
+
+```
+^C
+[INFO] [1701287376.123456789] [latency_tester]:
+Latency Statistics:
+  Average: 3.27 ms
+  Min: 2.98 ms
+  Max: 4.51 ms
+  Samples: 300
+```
+
+**Acceptance Criteria**:
+- **Average latency &lt;10ms**: Suitable for real-time control (50-100 Hz control loop)
+- **Max latency &lt;20ms**: No significant outliers (stable network)
+- If latency >10ms on local network, check for:
+  - Wi-Fi interference (use wired Ethernet)
+  - CPU throttling on Jetson (check `tegrastats`)
+  - Background processes consuming bandwidth
+
+## Part 6: Test 5 - Full System Integration
+
+Combine all components: Isaac Sim (Workstation) → RealSense (Jetson) → Visualization (Workstation).
+
+### Launch Isaac Sim with ROS 2 Bridge
+
+**Terminal 1 (Workstation)**:
+```bash
+cd ~/.local/share/ov/pkg/isaac-sim-4.2.0/
+./isaac-sim.sh
+```
+
+**In Isaac Sim**:
+1. File → Open → Select Carter warehouse scene
+2. Window → Extensions → Enable "omni.isaac.ros2_bridge"
+3. Create camera publisher (refer to Section 02-workstation-specs.mdx, Part 5)
+4. Press **Play** (simulation starts)
+
+### Monitor All Topics from Workstation
+
+**Terminal 2 (Workstation)**:
+```bash
+ros2 topic list
+```
+
+**Expected Output** (combined topics from Isaac Sim + Jetson RealSense):
+```
+/carter/camera/rgb                  (Isaac Sim)
+/carter/camera/camera_info          (Isaac Sim)
+/camera/color/image_raw             (Jetson RealSense)
+/camera/depth/image_rect_raw        (Jetson RealSense)
+/camera/imu                         (Jetson RealSense)
+/cmd_vel                            (Control topic)
+```
+
+### Visualize in RViz2
+
+**Terminal 3 (Workstation)**:
+```bash
+rviz2
+```
+
+**Add Displays**:
+1. **Isaac Sim Camera**: `/carter/camera/rgb` (Image)
+2. **RealSense RGB**: `/camera/color/image_raw` (Image)
+3. **RealSense Depth**: `/camera/depth/image_rect_raw` (Image)
+
+**Expected Behavior**:
+- Three video streams update simultaneously
+- Isaac Sim: Simulated warehouse view (60 FPS)
+- RealSense RGB: Real-world camera view (30 FPS)
+- RealSense Depth: Depth heatmap (30 FPS)
+
+**Final Verification**:
+- All streams show &lt;50ms latency (check RViz2 status bar)
+- No dropped frames during 5-minute test
+- CPU usage on Jetson &lt;60% (check `tegrastats`)
+
+## Part 7: Performance Benchmarks
+
+Document baseline performance for future troubleshooting.
+
+### Bandwidth Test
+
+**Measure network traffic on Workstation**:
+```bash
+# Install iftop
+sudo apt install iftop
+
+# Monitor network interface (replace wlp3s0 with your interface)
+sudo iftop -i wlp3s0
+```
+
+**Run full system (Isaac Sim + RealSense)**, observe bandwidth:
+
+**Expected Values**:
+- **RealSense RGB (1920×1080×3×30)**: ~177 MB/s
+- **RealSense Depth (1280×720×2×30)**: ~55 MB/s
+- **Isaac Sim RGB (640×480×3×60)**: ~55 MB/s
+- **Total**: ~287 MB/s (well below Gigabit Ethernet's 125 MB/s limit)
+
+:::warning Wi-Fi Bandwidth Limit
+Wi-Fi 5 (802.11ac): ~60 MB/s real-world throughput → **will drop frames**
+
+Wi-Fi 6 (802.11ax): ~120 MB/s → **may work** if no interference
+
+**Recommendation**: Use **wired Gigabit Ethernet** for Jetson (included on dev kit).
+:::
+
+### CPU/GPU Usage Baseline
+
+**On Workstation** (during full system operation):
+```bash
+nvidia-smi
+```
+
+**Expected Output**:
+```
++-----------------------------------------------------------------------------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4070 Ti   Off   |   00000000:01:00.0  On |                  N/A |
+| 45%   62C    P2            185W /  285W |    8543MiB /  12282MiB |     78%      Default |
++-----------------------------------------------------------------------------------------+
+```
+
+**On Jetson**:
+```bash
+sudo tegrastats
+```
+
+**Expected Output**:
+```
+RAM 3205/7467MB (lfb 1123x4MB) CPU [48%@2014,52%@2014,45%@2014,50%@2014,47%@2014,49%@2014] GR3D_FREQ 78% cpu@58.5C
+```
+
+**Acceptance Criteria**:
+- Workstation GPU: 70-85% utilization (headroom for VLA inference)
+- Jetson CPU: 45-55% utilization (headroom for Nav2 stack)
+- Jetson GPU: 75-85% utilization (processing RealSense streams)
+- Temperatures &lt;75°C on both systems
+
+## Summary: Three-Tier Architecture Validated
+
+Your Physical AI lab is fully operational:
+
+| Test | Result | Latency | Pass/Fail |
+|------|--------|---------|-----------|
+| **Topic Echo** | Workstation ↔ Jetson bidirectional | - | ✅ Pass |
+| **Velocity Commands** | `/cmd_vel` received on Jetson | - | ✅ Pass |
+| **RealSense Streaming** | RGB + Depth at 30 FPS | - | ✅ Pass |
+| **Round-Trip Latency** | Workstation → Jetson → Workstation | 3.27 ms | ✅ Pass |
+| **Full System Integration** | Isaac Sim + RealSense + RViz2 | &lt;10 ms | ✅ Pass |
+
+**What You Can Now Do**:
+1. **Simulate robots** in Isaac Sim (Workstation)
+2. **Deploy perception models** on Jetson using TensorRT
+3. **Stream sensor data** from RealSense to both tiers
+4. **Visualize everything** in RViz2 in real-time
+
+**Next Chapter**: Dive into the Physical AI software architecture (VLA models, behavior trees, Nav2 stack).
+
+## Troubleshooting
+
+### Issue: Latency >50ms on Local Network
+**Cause**: Network congestion or Wi-Fi interference.
+
+**Fix**:
+```bash
+# Switch Jetson to wired Ethernet
+# On Jetson, disable Wi-Fi to force Ethernet usage:
+sudo nmcli radio wifi off
+```
+
+### Issue: RealSense Topics Not Visible from Workstation
+**Cause**: Firewall blocking multicast or wrong ROS_DOMAIN_ID.
+
+**Fix**:
+```bash
+# On Jetson, allow ROS 2 through firewall
+sudo ufw allow from 224.0.0.0/4
+sudo ufw allow from 239.255.0.0/16
+
+# Verify ROS_DOMAIN_ID matches
+echo $ROS_DOMAIN_ID  # On both machines
+```
+
+### Issue: Isaac Sim Crashes When RealSense Streams Active
+**Cause**: Insufficient VRAM (12GB total, shared between both).
+
+**Fix**:
+```bash
+# Reduce RealSense resolution on Jetson
+ros2 launch realsense2_camera rs_launch.py \
+  rgb_camera.profile:=640x480x30 \
+  depth_module.profile:=640x480x30
+```
+
+Your hardware lab is complete and verified. You're ready to build Physical AI systems.

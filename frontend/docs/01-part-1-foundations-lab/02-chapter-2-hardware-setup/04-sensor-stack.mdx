@@ -1,0 +1,662 @@
+---
+id: sensor-integration
+title: "Sensor Integration: Intel RealSense D435i Setup"
+description: "Install librealsense SDK and configure Intel RealSense D435i RGB-D camera for ROS 2 integration on Jetson and workstation."
+sidebar_position: 4
+keywords:
+  - Intel RealSense D435i
+  - librealsense SDK
+  - RGB-D camera
+  - depth sensing
+  - IMU calibration
+  - ROS 2 wrapper
+---
+
+# Sensor Integration: Intel RealSense D435i Setup
+
+## Introduction: The Robot's Eyes
+
+The **Intel RealSense D435i** is the perception system for your robot, providing:
+
+1. **RGB Camera**: 1920×1080 color images at 30 FPS (for object recognition)
+2. **Stereo Depth**: 1280×720 depth maps at 90 FPS (for obstacle avoidance)
+3. **IMU (Inertial Measurement Unit)**: 6-axis accel/gyro at 400 Hz (for odometry)
+
+**Why This Camera Specifically?**
+
+| Feature | D435i | D405 (Short-Range) | D455 (Long-Range) |
+|---------|-------|-------------------|-------------------|
+| **Depth Range** | 0.3m - 3m | 0.07m - 1m | 0.6m - 6m |
+| **Use Case** | Indoor navigation | Tabletop manipulation | Outdoor/warehouse |
+| **IMU** | Yes (BMI085) | No | Yes (BMI055) |
+| **FoV (Field of View)** | 87° × 58° | 87° × 58° | 87° × 58° |
+| **Price** | $349 | $239 | $389 |
+
+**D435i Advantages**:
+- **0.3m minimum range**: Perfect for humanoid robots (arm reach is ~0.5m)
+- **Built-in IMU**: Sensor fusion for Visual-Inertial Odometry (VIO)
+- **90 FPS depth**: Fast enough for dynamic obstacle avoidance
+
+**Technical Specifications**:
+- **Depth Technology**: Active IR stereo (not ToF, works in sunlight)
+- **Baseline**: 50mm (distance between IR cameras, affects depth accuracy)
+- **Depth Accuracy**: ±2mm at 1m distance (sub-centimeter precision)
+- **Interface**: USB 3.0 (5 Gbps, required for uncompressed streams)
+- **Power**: 1.5W typical, 3.5W peak (USB bus-powered)
+
+**Time Estimate**: 1-2 hours (SDK compilation on Jetson is slow).
+
+## Part 1: Install librealsense SDK
+
+The `librealsense` SDK provides low-level camera control and data streaming.
+
+### Install on Workstation (Ubuntu 22.04)
+
+**Add Intel RealSense PPA**:
+```bash
+# Register the server's public key
+sudo mkdir -p /etc/apt/keyrings
+curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | \
+  sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null
+
+# Add repository to apt sources
+echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" | \
+  sudo tee /etc/apt/sources.list.d/librealsense.list
+
+# Update and install
+sudo apt update
+sudo apt install -y librealsense2-dkms librealsense2-utils librealsense2-dev
+```
+
+**Verify Installation**:
+```bash
+# Check SDK version
+realsense-viewer --version
+```
+
+**Expected Output**:
+```
+Intel RealSense Viewer v2.55.1
+```
+
+### Install on Jetson (Ubuntu 20.04)
+
+The PPA method doesn't work on ARM64, so we build from source.
+
+**Install Dependencies**:
+```bash
+sudo apt update
+sudo apt install -y git cmake build-essential libusb-1.0-0-dev \
+  libglfw3-dev libssl-dev pkg-config libgtk-3-dev
+```
+
+**Clone and Build librealsense**:
+```bash
+# Clone repository
+cd ~
+git clone https://github.com/IntelRealSense/librealsense.git
+cd librealsense
+
+# Checkout latest stable release (v2.55.1 as of Nov 2024)
+git checkout v2.55.1
+
+# Create build directory
+mkdir build && cd build
+
+# Configure with CMake (disable GUI on Jetson to save space)
+cmake .. \
+  -DBUILD_EXAMPLES=true \
+  -DBUILD_GRAPHICAL_EXAMPLES=false \
+  -DCMAKE_BUILD_TYPE=Release
+
+# Compile (use all 6 CPU cores, takes 20-30 minutes)
+make -j6
+
+# Install
+sudo make install
+```
+
+**Update Library Cache**:
+```bash
+sudo ldconfig
+```
+
+**Verify Installation**:
+```bash
+rs-enumerate-devices
+```
+
+**Expected Output** (if camera not yet connected):
+```
+No RealSense devices were found!
+```
+
+## Part 2: Connect and Test RealSense Camera
+
+### Physical Connection
+
+1. **Plug RealSense D435i into USB 3.0 port**:
+   - **Workstation**: Use rear motherboard USB 3.0 (blue port)
+   - **Jetson**: Use any of the 4 USB 3.2 ports (blue)
+2. **Verify USB 3.0 speed**:
+   ```bash
+   lsusb -t
+   ```
+
+**Expected Output** (Jetson):
+```
+/:  Bus 01.Port 1: Dev 1, Class=root_hub, Driver=xhci-tegra/4p, 5000M
+    |__ Port 1: Dev 2, If 0, Class=Video, Driver=uvcvideo, 5000M
+    |__ Port 1: Dev 2, If 3, Class=Video, Driver=uvcvideo, 5000M
+```
+
+**Key Check**: Speed should be `5000M` (USB 3.0). If you see `480M`, you're using USB 2.0 (will cause frame drops).
+
+### Enumerate Device
+
+```bash
+rs-enumerate-devices
+```
+
+**Expected Output**:
+```
+Device info:
+    Name                          : Intel RealSense D435I
+    Serial Number                 : 123456789012
+    Firmware Version              : 05.16.01.00
+    Product Id                    : 0B3A
+    USB Type                      : 3.2
+
+Stream Profiles supported by Stereo Module:
+    Infrared 1: 1280x720 @ 30fps Y8
+    Infrared 2: 1280x720 @ 30fps Y8
+    Depth: 1280x720 @ 30fps Z16
+
+Stream Profiles supported by RGB Camera:
+    RGB8: 1920x1080 @ 30fps
+    RGB8: 1280x720 @ 30fps
+
+Stream Profiles supported by Motion Module:
+    Accel: 250 Hz, 400 Hz
+    Gyro: 200 Hz, 400 Hz
+```
+
+### Test Camera with realsense-viewer
+
+**On Workstation** (has GUI):
+```bash
+realsense-viewer
+```
+
+**Expected Behavior**:
+1. Window opens showing connected D435i
+2. Click "Turn on camera" (stereo module)
+3. RGB stream appears (1920×1080)
+4. Depth stream appears (1280×720, colored heatmap)
+5. Point camera at objects 0.5-2m away, depth map updates in real-time
+
+**Depth Visualization**:
+- **Red/Yellow**: Close objects (0.3-1m)
+- **Green**: Mid-range (1-2m)
+- **Blue/Purple**: Far objects (2-3m)
+- **Black**: No depth data (too close, too far, or reflective surface)
+
+**On Jetson** (headless, test via SSH):
+```bash
+# Capture single RGB frame
+rs-capture -f rgb.png
+
+# Transfer to workstation to view
+scp jetson@192.168.1.150:~/rgb.png .
+```
+
+## Part 3: Camera Calibration and Configuration
+
+### Intrinsic Calibration
+
+RealSense cameras are factory-calibrated, but you should verify calibration quality.
+
+```bash
+# View calibration data
+rs-enumerate-devices -c
+```
+
+**Expected Output** (truncated):
+```
+Intrinsic of "Depth" / 1280x720 / {Z16}
+  Width:        1280
+  Height:       720
+  PPX:          638.547
+  PPY:          362.839
+  Fx:           640.125
+  Fy:           640.125
+  Distortion:   Brown Conrady
+  Coeffs:       0.001234  -0.002345  0.000012  0.000034  0
+```
+
+**Key Parameters**:
+- **PPX/PPY**: Principal point (should be near image center: 640, 360)
+- **Fx/Fy**: Focal length in pixels (should be similar, ~640 for 87° FoV)
+- **Distortion Coeffs**: Should be small (&lt;0.01 for good calibration)
+
+:::warning If Fx/Fy Differ by >5%
+Camera may have been dropped, causing lens misalignment. Contact Intel RealSense support for recalibration tool.
+:::
+
+### Depth Accuracy Test
+
+**Test Setup**:
+1. Place flat wall 1.0m from camera (use tape measure)
+2. Point camera perpendicular to wall
+
+**Run Depth Accuracy Tool**:
+```bash
+# Record 30 frames at 1m distance
+rs-depth-quality -w 1.0
+```
+
+**Expected Output**:
+```
+Analyzing 30 frames...
+Ground truth distance: 1000 mm
+Measured distance:     998.3 mm ± 1.8 mm
+Error:                 -1.7 mm (0.17%)
+RMS Error:             2.1 mm
+Fill Rate:             98.4%
+```
+
+**Acceptance Criteria**:
+- **Error < 3mm**: Good calibration
+- **RMS Error < 5mm**: Acceptable for navigation
+- **Fill Rate > 95%**: Sufficient depth coverage
+
+### Adjust Camera Settings
+
+Default settings are tuned for balanced performance. Adjust for your use case:
+
+**High Accuracy Mode** (slow-moving indoor robots):
+```bash
+# Launch realsense-viewer (workstation GUI)
+# In viewer:
+# 1. Stereo Module → Depth Control
+# 2. Set "Depth Units" to 0.0001 (0.1mm precision)
+# 3. Enable "High Accuracy Preset"
+# 4. Set "Frames Queue Size" to 16 (reduces latency)
+```
+
+**High Density Mode** (cluttered environments):
+```bash
+# 1. Stereo Module → Depth Control
+# 2. Enable "High Density Preset"
+# 3. Increase "Disparity Shift" to 100 (more detail in close range)
+```
+
+**Save Configuration**:
+```bash
+# Click "Configuration" → "Save to Device"
+# Settings persist across power cycles
+```
+
+## Part 4: Install ROS 2 RealSense Wrapper
+
+The `realsense-ros` package publishes camera streams as ROS 2 topics.
+
+### Install on Workstation
+
+```bash
+# Install pre-built binary package
+sudo apt install ros-humble-realsense2-camera ros-humble-realsense2-description
+
+# Source ROS 2 environment
+source /opt/ros/humble/setup.bash
+```
+
+### Install on Jetson (Build from Source)
+
+```bash
+# Create ROS 2 workspace
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+
+# Clone RealSense ROS 2 wrapper
+git clone https://github.com/IntelRealSense/realsense-ros.git -b ros2-master
+
+# Install dependencies
+cd ~/ros2_ws
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+
+# Build (takes 10-15 minutes on Jetson)
+colcon build --packages-select realsense2_camera realsense2_description
+
+# Source workspace
+echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+```
+
+## Part 5: Launch RealSense ROS 2 Node
+
+### Basic Launch
+
+**On Jetson or Workstation**:
+```bash
+ros2 launch realsense2_camera rs_launch.py
+```
+
+**Expected Output**:
+```
+[INFO] [realsense2_camera_node]: RealSense ROS v4.55.1
+[INFO] [realsense2_camera_node]: Running with LibRealSense v2.55.1
+[INFO] [realsense2_camera_node]: Device Name: Intel RealSense D435I
+[INFO] [realsense2_camera_node]: Device Serial No: 123456789012
+[INFO] [realsense2_camera_node]: Device FW version: 05.16.01.00
+
+[INFO] [realsense2_camera_node]: Publishing topics:
+  /camera/color/image_raw
+  /camera/color/camera_info
+  /camera/depth/image_rect_raw
+  /camera/depth/camera_info
+  /camera/infra1/image_rect_raw
+  /camera/infra2/image_rect_raw
+  /camera/imu
+  /camera/gyro/sample
+  /camera/accel/sample
+  /camera/extrinsics/depth_to_color
+```
+
+### Verify Topics
+
+**In another terminal**:
+```bash
+ros2 topic list
+```
+
+**Expected Output**:
+```
+/camera/accel/sample
+/camera/color/camera_info
+/camera/color/image_raw
+/camera/depth/camera_info
+/camera/depth/image_rect_raw
+/camera/gyro/sample
+/camera/imu
+/camera/infra1/image_rect_raw
+/camera/infra2/image_rect_raw
+/parameter_events
+/rosout
+/tf_static
+```
+
+### Check Topic Frequency
+
+```bash
+# RGB camera (should be 30 Hz)
+ros2 topic hz /camera/color/image_raw
+
+# Depth camera (should be 30 Hz default)
+ros2 topic hz /camera/depth/image_rect_raw
+
+# IMU (should be 400 Hz)
+ros2 topic hz /camera/imu
+```
+
+**Expected Output**:
+```
+# RGB
+average rate: 30.012
+    min: 0.032s max: 0.034s std dev: 0.00051s window: 30
+
+# Depth
+average rate: 30.008
+    min: 0.032s max: 0.034s std dev: 0.00048s window: 30
+
+# IMU
+average rate: 399.847
+    min: 0.002s max: 0.003s std dev: 0.00012s window: 400
+```
+
+### Visualize Streams on Workstation
+
+**Install Image Viewer**:
+```bash
+sudo apt install ros-humble-rqt-image-view
+```
+
+**View RGB Stream**:
+```bash
+ros2 run rqt_image_view rqt_image_view
+# In window: Select /camera/color/image_raw
+```
+
+**View Depth Stream**:
+```bash
+ros2 run rqt_image_view rqt_image_view
+# Select /camera/depth/image_rect_raw
+# Check "Normalize" to see depth heatmap
+```
+
+**View in RViz2**:
+```bash
+rviz2
+```
+
+**RViz2 Configuration**:
+1. Click "Add" → "By topic"
+2. Select `/camera/color/image_raw` → Image
+3. Select `/camera/depth/image_rect_raw` → Image
+4. Select `/camera/depth/points` → PointCloud2 (3D depth cloud)
+5. Set "Fixed Frame" to "camera_link"
+
+**Expected Behavior**: Live 3D point cloud showing room geometry.
+
+## Part 6: Advanced Configuration
+
+### Enable Depth-to-Color Alignment
+
+By default, depth and RGB streams have different resolutions and fields of view. Alignment projects depth onto RGB frame.
+
+```bash
+ros2 launch realsense2_camera rs_launch.py align_depth.enable:=true
+```
+
+**New Topic**:
+```
+/camera/aligned_depth_to_color/image_raw
+```
+
+**Use Case**: Object detection (run YOLO on RGB, get 3D position from aligned depth).
+
+### Increase Depth Resolution to 90 FPS
+
+```bash
+ros2 launch realsense2_camera rs_launch.py \
+  depth_module.profile:=1280x720x90
+```
+
+**Trade-off**:
+- **Benefit**: Faster obstacle reaction (3× more frames)
+- **Cost**: 3× USB bandwidth (may saturate on Jetson if running other nodes)
+
+### Enable Pointcloud Publishing
+
+```bash
+ros2 launch realsense2_camera rs_launch.py \
+  pointcloud.enable:=true
+```
+
+**New Topic**:
+```
+/camera/depth/color/points (PointCloud2)
+```
+
+**Data Rate**: ~50 MB/s (307,200 points × 16 bytes × 30 FPS)
+
+:::danger Pointcloud Bandwidth Warning
+On Jetson, publishing pointcloud + RGB + depth simultaneously saturates USB 3.0 (625 MB/s theoretical, ~400 MB/s real). Reduce depth FPS to 15 Hz if using all streams:
+```bash
+ros2 launch realsense2_camera rs_launch.py \
+  pointcloud.enable:=true \
+  depth_module.profile:=1280x720x15
+```
+:::
+
+### IMU Calibration for VIO
+
+The D435i's IMU requires gyro/accel calibration for accurate odometry.
+
+**Run Calibration Tool**:
+```bash
+# Install Python dependencies
+pip3 install pyrealsense2 numpy
+
+# Download calibration script
+cd ~
+wget https://raw.githubusercontent.com/IntelRealSense/librealsense/master/tools/rs-imu-calibration/rs-imu-calibration.py
+
+# Run calibration (place camera on flat, stable surface)
+python3 rs-imu-calibration.py
+```
+
+**Follow Prompts**:
+1. **Accel calibration**: Rotate camera to 6 orientations (+X, -X, +Y, -Y, +Z, -Z)
+2. **Gyro calibration**: Keep camera perfectly still for 60 seconds
+3. Script writes calibration to camera's EEPROM
+
+**Verify Calibration**:
+```bash
+rs-enumerate-devices -c | grep -A 10 "Motion Module"
+```
+
+**Expected Output** (after calibration):
+```
+Motion Module Intrinsics:
+  Accel Bias: [0.0012, -0.0034, 0.0056]  (should be near 0)
+  Gyro Bias:  [0.0001, -0.0002, 0.0003]  (should be < 0.01)
+```
+
+## Part 7: ReSpeaker Mic Array Setup (Optional)
+
+The ReSpeaker USB Mic Array is used in Module 4 for voice commands (Whisper speech recognition).
+
+### Install on Workstation and Jetson
+
+```bash
+# Plug ReSpeaker into USB 2.0 port (does not need USB 3.0)
+
+# Verify detection
+lsusb | grep -i seeed
+```
+
+**Expected Output**:
+```
+Bus 001 Device 005: ID 2886:0018 Seeed ReSpeaker 4 Mic Array
+```
+
+### Test Audio Capture
+
+```bash
+# Install ALSA tools
+sudo apt install alsa-utils
+
+# List audio devices
+arecord -l
+```
+
+**Expected Output**:
+```
+**** List of CAPTURE Hardware Devices ****
+card 1: Array [ReSpeaker 4 Mic Array], device 0: USB Audio [USB Audio]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+```
+
+**Record Test Audio**:
+```bash
+# Record 5 seconds of audio
+arecord -D plughw:1,0 -f S16_LE -r 16000 -c 1 -d 5 test.wav
+
+# Play back (on workstation with speakers)
+aplay test.wav
+```
+
+### Install ROS 2 Audio Capture Node
+
+```bash
+sudo apt install ros-humble-audio-capture
+
+# Launch microphone node
+ros2 launch audio_capture capture_wave.launch.py
+```
+
+**Published Topic**:
+```
+/audio (audio_common_msgs/AudioData)
+```
+
+**Use Case**: We'll integrate this with Whisper API in Module 4 for voice-controlled navigation.
+
+## Summary: Sensor Stack Operational
+
+Your perception hardware is now fully integrated:
+
+| Sensor | Output Topics | Frame Rate | Data Rate |
+|--------|--------------|------------|-----------|
+| **RGB Camera** | `/camera/color/image_raw` | 30 FPS | 177 MB/s |
+| **Depth Camera** | `/camera/depth/image_rect_raw` | 30 FPS | 55 MB/s |
+| **IMU** | `/camera/imu` | 400 Hz | 10 KB/s |
+| **Pointcloud** (optional) | `/camera/depth/color/points` | 30 FPS | 50 MB/s |
+| **Microphone** (optional) | `/audio` | 16 kHz | 32 KB/s |
+
+**Total USB Bandwidth** (worst case): 282 MB/s of 625 MB/s available (45% utilization).
+
+**Next Section**: Verify three-tier communication (Workstation ↔ Jetson ↔ RealSense).
+
+## Troubleshooting
+
+### Issue: `rs-enumerate-devices` Shows No Devices
+**Cause**: USB permissions or wrong USB version.
+
+**Fix**:
+```bash
+# Add user to plugdev group
+sudo usermod -a -G plugdev $USER
+
+# Logout and login for group change to take effect
+exit  # Then SSH back in
+
+# Try different USB port (use blue USB 3.0 port)
+```
+
+### Issue: Depth Stream Shows Black Image
+**Cause**: IR emitter disabled or insufficient IR light.
+
+**Fix**:
+```bash
+# In realsense-viewer: Stereo Module
+# Enable "Emitter Enabled"
+# Increase "Laser Power" to 300 (max 360)
+```
+
+### Issue: High CPU Usage (80%+) on Jetson
+**Cause**: Software encoding of H.264 stream.
+
+**Fix**: Use hardware encoding (Jetson's NVENC):
+```bash
+# Launch with hardware encoding enabled
+ros2 launch realsense2_camera rs_launch.py \
+  enable_compressed:=true \
+  compressed_format:=h264
+```
+
+### Issue: IMU Data Jittery
+**Cause**: USB power fluctuations.
+
+**Fix**:
+```bash
+# Use externally powered USB hub
+# Or reduce USB power consumption:
+ros2 launch realsense2_camera rs_launch.py \
+  depth_module.profile:=640x480x30  # Lower resolution
+```
+
+Your robot can now see the world. Next section: Integrate all three tiers (Workstation, Jetson, RealSense) into a unified ROS 2 network.

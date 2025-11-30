@@ -1,0 +1,110 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #C6613F; /* Primary color changed to user request */
+  --ifm-color-primary-dark: #b35637;
+  --ifm-color-primary-darker: #aa5133;
+  --ifm-color-primary-darkest: #8d432a;
+  --ifm-color-primary-light: #ce6d4c;
+  --ifm-color-primary-lighter: #d27353;
+  --ifm-color-primary-lightest: #e0876b;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+  /* Custom Variables from user request */
+  --custom-sidebar-bg: #FAF9F5;
+  --custom-sidebar-hover: #E8E6DC;
+  --custom-text-color: #3D3D3A;
+  --custom-footer-bg: #191919;
+  --custom-accent-color: #C6613F; /* Green replacement */
+  --custom-main-heading-color: #0f0f0f; /* Dark Black */
+}
+
+/* Global Background */
+body {
+  background-color: #ffffff;
+  color: var(--custom-text-color);
+}
+
+/* Sidebar Styling */
+.theme-doc-sidebar-container {
+  background-color: var(--custom-sidebar-bg) !important;
+  border-right: 1px solid #e5e5e5;
+}
+
+.menu {
+  background-color: var(--custom-sidebar-bg);
+}
+
+/* Sidebar Menu Items */
+.menu__link {
+  color: var(--custom-text-color);
+  font-size: 14px; /* Requested size */
+}
+
+.menu__link:hover,
+.menu__link--active {
+  background-color: var(--custom-sidebar-hover);
+  color: black;
+}
+
+/* Documentation Content Styling */
+.markdown {
+  font-size: 18px; /* Requested size for body text */
+  color: var(--custom-text-color);
+}
+
+.markdown h1 {
+  color: var(--custom-main-heading-color);
+  font-weight: 800;
+}
+
+.markdown h2, .markdown h3, .markdown h4 {
+  color: #2a2a2a; /* Slightly lighter than main heading */
+}
+
+/* Navbar Styling */
+.navbar {
+  background-color: var(--custom-sidebar-bg);
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.navbar__title {
+  font-weight: bold;
+  color: black;
+}
+
+/* Footer Styling */
+.footer {
+  background-color: var(--custom-footer-bg);
+  color: #ffffff;
+}
+
+.footer__title {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.footer__link-item {
+  color: #cccccc;
+}
+
+/* Chatbot Widget Global Overrides */
+#chatbot-widget-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999; /* High z-index */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .theme-doc-sidebar-container {
+    border-right: none;
+  }
+}

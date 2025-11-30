@@ -1,0 +1,42 @@
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "Chapter Frontmatter Schema"
+description: "Validation schema for MDX chapter frontmatter (YAML block at file start)"
+type: object
+required:
+  - id
+  - title
+  - description
+  - sidebar_position
+  - keywords
+properties:
+  id:
+    type: string
+    pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"  # kebab-case
+    description: "Unique chapter identifier (kebab-case)"
+  title:
+    type: string
+    minLength: 10
+    maxLength: 80
+    description: "Display title for the chapter"
+  description:
+    type: string
+    minLength: 50
+    maxLength: 160
+    pattern: ".*\.$"  # Must end with period
+    description: "SEO meta description (complete sentence)"
+  sidebar_label:
+    type: string
+    maxLength: 40
+    description: "Optional short label for sidebar (defaults to title if omitted)"
+  sidebar_position:
+    type: integer
+    minimum: 1
+    description: "Order within module (1-indexed, use gaps like 1,2,3,5,7 for future insertion)"
+  keywords:
+    type: array
+    minItems: 3
+    maxItems: 7
+    items:
+      type: string
+      minLength: 2
+    description: "Keywords for search and SEO"

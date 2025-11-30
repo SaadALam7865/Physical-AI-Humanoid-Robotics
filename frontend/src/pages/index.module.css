@@ -1,0 +1,88 @@
+/**
+ * CSS for Homepage
+ */
+
+.heroSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh; /* Occupy most of the screen */
+  padding: 2rem;
+  background-color: #ffffff;
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4rem;
+  max-width: 1200px;
+  width: 100%;
+}
+
+/* Text Content Side */
+.content {
+  flex: 1;
+  text-align: left;
+}
+
+.bookTitle {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #C6613F; /* Requested Color */
+  line-height: 1.2;
+  margin-bottom: 2rem;
+}
+
+.startReadingBtn {
+  display: inline-block;
+  padding: 12px 32px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #C6613F; /* Text Color */
+  border: 2px solid #C6613F; /* Border Color */
+  background-color: transparent; /* BG None */
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.startReadingBtn:hover {
+  background-color: #C6613F;
+  color: white;
+  text-decoration: none;
+}
+
+/* Image Side */
+.imageContainer {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.homeImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  max-height: 500px;
+  object-fit: cover;
+}
+
+/* Responsive: Column on small screens */
+@media (max-width: 996px) {
+  .container {
+    flex-direction: column-reverse; /* Image on top or text on top? User said "Row on big, Column on small". Usually Image top or Text top. Let's keep text top for CTAs usually, or image. Let's try Column (Text Top) default */
+    flex-direction: column;
+    gap: 2rem;
+    text-align: center;
+  }
+
+  .content {
+    text-align: center;
+  }
+
+  .bookTitle {
+    font-size: 2.5rem;
+  }
+}

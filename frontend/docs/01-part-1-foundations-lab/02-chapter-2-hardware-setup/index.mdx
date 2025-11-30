@@ -1,0 +1,263 @@
+---
+id: hardware-setup
+title: "Chapter 2: Hardware Setup"
+description: "Build a professional Physical AI development lab with RTX workstation, Jetson Orin Nano, and Intel RealSense D435i camera."
+sidebar_position: 2
+keywords:
+  - hardware setup
+  - three-tier architecture
+  - RTX 4070 Ti
+  - Jetson Orin Nano
+  - Intel RealSense D435i
+  - ROS 2 Humble
+  - Isaac Sim
+---
+
+# Chapter 2: Hardware Setup
+
+## Overview
+
+This chapter guides you through building a **three-tier Physical AI development lab**:
+
+1. **Tier 1 (Workstation)**: NVIDIA RTX GPU for photorealistic simulation and VLA model training
+2. **Tier 2 (Edge Computer)**: Jetson Orin Nano for real-time inference and ROS 2 navigation
+3. **Tier 3 (Sensors)**: Intel RealSense D435i for RGB-D-IMU perception
+
+**Time Commitment**: 6-8 hours total setup time.
+
+**Budget**: $700 (economy) to $3,200 (premium).
+
+## Learning Objectives
+
+By the end of this chapter, you will:
+
+1. ✅ **Understand** why specific hardware is mandatory (not optional recommendations)
+2. ✅ **Install** Ubuntu 22.04, CUDA 12.6, and Isaac Sim on workstation
+3. ✅ **Flash** JetPack 6.0 and configure Jetson Orin Nano for headless operation
+4. ✅ **Integrate** Intel RealSense D435i camera with ROS 2 on both tiers
+5. ✅ **Verify** end-to-end communication across all three tiers
+6. ✅ **Measure** system performance (latency, bandwidth, GPU utilization)
+
+## Prerequisites
+
+### Required Knowledge
+- **Linux basics**: Command line navigation, package management (apt)
+- **Networking**: IP addresses, ping, SSH
+- **Hardware assembly**: Comfortable installing PC components (for workstation build)
+
+### Required Hardware (Minimum)
+- **Workstation with RTX 4070 Ti (12GB VRAM)** - $799+ for GPU alone
+- **NVIDIA Jetson Orin Nano Super Dev Kit** - $249
+- **Intel RealSense D435i Camera** - $349
+- **256GB microSD card (UHS-I)** - $40
+- **USB 3.0 cables, HDMI monitor, keyboard, mouse**
+
+**Total Minimum Investment**: ~$1,500 (if building workstation from scratch).
+
+### Optional but Recommended
+- **Second monitor** for workstation (one for Isaac Sim, one for RViz2)
+- **Powered USB hub** for Jetson (reduces power fluctuations)
+- **Gigabit Ethernet cables** (faster and more reliable than Wi-Fi)
+- **Cooling fan for Jetson** (Noctua NF-A4x10, $15)
+
+## Chapter Structure
+
+This chapter contains 7 sections:
+
+### [Section 0: Introduction](./00-intro)
+- The "Hardware Mandate": Why consumer devices fail
+- Three-tier architecture overview
+- Cost breakdown: Economy vs Premium lab
+
+### [Section 1: Hardware Mandate](./01-hardware-mandate)
+- Technical analysis: Why RTX ray tracing is irreplaceable
+- Why ROS 2 requires native Linux (not WSL2/macOS)
+- Why Jetson outperforms Raspberry Pi by 200×
+- VRAM requirements for Isaac Sim + VLA models
+
+### [Section 2: Workstation Setup](./02-workstation-specs)
+- Install Ubuntu 22.04 (dual-boot or dedicated)
+- Install NVIDIA Driver 545 and CUDA 12.6
+- Install Isaac Sim 4.2.0 from Omniverse Launcher
+- Install ROS 2 Humble Desktop
+- Verify with Carter warehouse scene (60 FPS rendering)
+
+### [Section 3: Jetson Orin Nano Setup](./03-edge-compute)
+- Flash JetPack 6.0 to microSD card
+- Configure headless operation (SSH)
+- Install ROS 2 Humble on Ubuntu 20.04
+- Install TensorRT Python bindings
+- Verify cross-machine ROS 2 communication
+
+### [Section 4: Sensor Integration](./04-sensor-stack)
+- Install librealsense SDK (workstation and Jetson)
+- Connect and calibrate RealSense D435i
+- Install ROS 2 wrapper (realsense2_camera)
+- Configure RGB-D streaming and IMU calibration
+- Optional: Setup ReSpeaker mic array for voice commands
+
+### [Section 5: Three-Tier Verification](./05-verification)
+- Test bidirectional topic communication
+- Measure round-trip latency (target: &lt;10ms)
+- Stream RealSense data to RViz2 on workstation
+- Full system integration: Isaac Sim + RealSense + RViz2
+- Performance benchmarking (GPU utilization, bandwidth)
+
+### [Section 6: Summary](./06-summary)
+- Review of all completed setup steps
+- Technical capabilities unlocked
+- Sim-to-real bridge considerations
+- Troubleshooting quick reference
+- Preview of Chapter 3 (Physical AI Software Architecture)
+
+## What You'll Build
+
+By completing this chapter, your lab will support:
+
+### Simulation Workflows
+- **Isaac Sim**: Photorealistic rendering with RTX ray tracing
+- **Robot design**: Import USD models, test kinematics
+- **Data generation**: Synthetic RGB-D datasets for training
+- **Sim-to-real validation**: Compare simulated vs real sensor outputs
+
+### Deployment Workflows
+- **Model optimization**: PyTorch → ONNX → TensorRT INT8
+- **Edge inference**: Run VLA models at 8ms latency on Jetson
+- **ROS 2 navigation**: Deploy Nav2 stack for autonomous navigation
+- **Sensor fusion**: Combine RGB-D-IMU for Visual-Inertial Odometry
+
+### Development Workflows
+- **Remote development**: SSH into Jetson from workstation
+- **Live debugging**: RViz2 visualization of sensor data and robot state
+- **Teleoperation**: Control robot from workstation keyboard
+- **Performance profiling**: Measure inference time, network latency
+
+## Key Decisions Explained
+
+### Why RTX 4070 Ti (Not 4060 Ti or AMD)?
+- **12GB VRAM**: Minimum for Isaac Sim (10-14 GB scenes)
+- **RT Cores**: Hardware ray tracing at 40 billion rays/sec
+- **CUDA ecosystem**: Native support for Isaac Sim, TensorRT, PyTorch
+
+**8GB VRAM is insufficient**: Isaac Sim will crash on complex scenes.
+
+### Why Jetson Orin Nano (Not Raspberry Pi or NUC)?
+- **Tensor Cores**: 40 TOPS AI performance (200× faster than Pi)
+- **Shared memory**: Zero-copy GPU-CPU access (critical for real-time vision)
+- **Power efficiency**: 10W for 125 FPS inference (vs 65W Intel NUC for 22 FPS)
+
+**Raspberry Pi 5 cannot run inference fast enough** for real-time control.
+
+### Why Intel RealSense D435i (Not OAK-D or ZED)?
+- **Active stereo depth**: Works in low light and outdoors (vs passive stereo)
+- **Built-in IMU**: 6-axis sensor fusion for VIO
+- **Native ROS 2 support**: Official `realsense2_camera` package
+- **0.3m minimum range**: Perfect for tabletop manipulation and indoor navigation
+
+**OAK-D lacks IMU**; ZED requires NVIDIA GPU on host (incompatible with Jetson headless mode).
+
+## Safety and Best Practices
+
+### Electrical Safety
+- **Grounded PSU**: Use 80+ Gold rated power supply for workstation (prevent GPU damage)
+- **Jetson cooling**: Monitor temperatures with `tegrastats` (safe limit: 85°C)
+- **USB power**: Do not daisy-chain USB hubs (RealSense needs dedicated USB 3.0 port)
+
+### Data Safety
+- **Backup dual-boot systems**: Windows Update can corrupt GRUB (disable Fast Startup)
+- **Version control**: Use Git for all ROS 2 packages and configuration files
+- **Dataset versioning**: Tag Isaac Sim generated datasets with simulation parameters
+
+### Development Safety
+- **Emergency stop**: Always implement software kill switch (monitor `/emergency_stop` topic)
+- **Battery monitoring**: Add low-voltage shutdown for battery-powered robots
+- **Network redundancy**: Implement failover to local control if Wi-Fi drops
+
+## Expected Outcomes
+
+After completing this chapter, your system will pass these tests:
+
+| Test | Metric | Passing Threshold |
+|------|--------|-------------------|
+| **Isaac Sim FPS** | Carter warehouse rendering | >55 FPS |
+| **CUDA verification** | `deviceQuery` result | "PASS" |
+| **ROS 2 discovery** | Cross-machine topic visibility | &lt;5 seconds |
+| **Latency** | Workstation ↔ Jetson round-trip | &lt;10ms average |
+| **RealSense streaming** | RGB + Depth frame rate | 30 FPS (0% drops) |
+| **GPU utilization** | Isaac Sim + RealSense active | 70-85% (headroom for inference) |
+
+**If any test fails**, consult the Troubleshooting sections in each module.
+
+## Common Pitfalls to Avoid
+
+### Mistake 1: Using WSL2 for ROS 2 Development
+**Why it fails**: WSL2 adds 15-25ms latency to ROS 2 topics due to network bridging.
+
+**Correct approach**: Install Ubuntu 22.04 natively (dual-boot or dedicated machine).
+
+### Mistake 2: Skipping IMU Calibration
+**Why it matters**: Uncalibrated IMU has 10× higher drift (±0.1 rad/s gyro bias).
+
+**Correct approach**: Run `rs-imu-calibration.py` before using RealSense for odometry.
+
+### Mistake 3: Using Wi-Fi for High-Bandwidth Streaming
+**Why it fails**: RealSense streams 232 MB/s; Wi-Fi 5 maxes at 60 MB/s → frame drops.
+
+**Correct approach**: Use Gigabit Ethernet for Jetson (125 MB/s sustained throughput).
+
+### Mistake 4: Installing Incompatible CUDA Versions
+**Why it fails**: Isaac Sim requires CUDA 12.x; TensorFlow 2.15 requires CUDA 11.8 → conflict.
+
+**Correct approach**: Use Docker containers for projects with conflicting dependencies.
+
+## Estimated Timeline
+
+| Section | Duration | Bottleneck |
+|---------|----------|-----------|
+| **0-1: Reading** | 1 hour | Understanding technical constraints |
+| **2: Workstation** | 2-3 hours | CUDA installation (3 GB download) |
+| **3: Jetson** | 1.5-2 hours | microSD flashing (20-30 min), ROS 2 compilation |
+| **4: Sensors** | 1 hour | librealsense compilation on Jetson (30 min) |
+| **5: Verification** | 30-45 min | Writing test code, running benchmarks |
+| **6: Review** | 15 min | Reading summary, confirming checklist |
+| **Total** | **6-8 hours** | Mostly passive waiting (downloads, compilation) |
+
+**Pro tip**: Start downloads/compilation tasks before breaks to minimize active waiting time.
+
+## Support Resources
+
+### If You Get Stuck
+1. **Re-read the Troubleshooting section** in the relevant module
+2. **Check hardware compatibility**: [NVIDIA Jetson Compatibility List](https://elinux.org/Jetson_Orin_Nano)
+3. **Search ROS Discourse**: [discourse.ros.org](https://discourse.ros.org)
+4. **Ask on NVIDIA Forums**: [forums.developer.nvidia.com](https://forums.developer.nvidia.com)
+
+### Useful Commands for Debugging
+```bash
+# Verify ROS 2 environment
+ros2 doctor --report
+
+# Check network latency
+ping -c 100 <jetson_ip>
+
+# Monitor GPU usage in real-time
+watch -n 1 nvidia-smi
+
+# Check USB device speed
+lsusb -t | grep -A 5 RealSense
+```
+
+## Ready to Begin?
+
+Click **[Section 0: Introduction →](./00-intro)** to start building your Physical AI lab.
+
+:::tip Parallel Setup Strategy
+If you have multiple computers available:
+1. **Day 1**: Setup workstation (long downloads can run overnight)
+2. **Day 2**: Flash Jetson while Isaac Sim downloads on workstation
+3. **Day 3**: Sensor integration and verification
+
+This parallelizes the timeline to ~3 days of calendar time (still 6-8 hours active work).
+:::
+
+**Let's build the foundation for intelligent robots.**

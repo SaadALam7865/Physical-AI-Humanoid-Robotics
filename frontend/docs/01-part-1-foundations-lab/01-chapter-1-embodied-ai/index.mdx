@@ -1,0 +1,186 @@
+---
+id: chapter-1-embodied-ai
+title: Chapter 1 - Embodied Intelligence
+description: Understanding Physical AI, embodied intelligence, and the hardware revolution enabling humanoid robots in 2024-2025.
+sidebar_position: 1
+keywords: [Physical AI, embodied intelligence, humanoid robots, Digital AI, Partner Economy]
+---
+
+# Chapter 1: Embodied Intelligence
+
+## Overview
+
+This chapter establishes the conceptual foundation for Physical AI—intelligence that exists not in data centers, but in robots with sensors and actuators that interact with the physical world.
+
+You'll learn why giving AI a body fundamentally changes its capabilities, constraints, and failure modes. By the end, you'll understand the hardware, data, and software convergences that make 2024-2025 the inflection point for humanoid robotics.
+
+## Learning Objectives
+
+By completing this chapter, you will be able to:
+
+1. **Distinguish Digital AI from Physical AI** and explain the architectural differences
+2. **Define embodied intelligence** and describe how robots learn through physical interaction
+3. **Apply the Partner Economy framework** to design human-AI-robot collaboration systems
+4. **Justify the humanoid form factor** using dataset abundance and sim-to-real transfer arguments
+5. **Specify hardware** for Physical AI systems (Jetson Orin Nano, Unitree robots, Intel RealSense)
+6. **Identify sim-to-real gaps** and predict deployment failure modes
+
+## Chapter Structure
+
+### [Introduction: When AI Gets Hands](./00-intro.mdx)
+The hook: understanding why ChatGPT with a robotic body is fundamentally different from ChatGPT in a data center. Preview of what you'll build by the end of the course.
+
+**Reading Time:** 5 minutes
+
+---
+
+### [Digital AI vs Physical AI](./01-digital-vs-physical-ai.mdx)
+Deep dive into the "brain location problem"—where does the AI live, and how does that change everything? Compare GPT-4 (cloud-based) with Tesla Optimus (edge-deployed) across latency, physics understanding, and failure modes.
+
+**Key Topics:**
+- Compute location (cloud vs edge)
+- Latency constraints (2 seconds vs 33 milliseconds)
+- Physics understanding (abstract vs embodied)
+- The compute spectrum (RTX 4070 Ti for training, Jetson Orin Nano for inference)
+
+**Reading Time:** 12 minutes
+
+---
+
+### [Brain in a Box vs Brain in a Body](./02-brain-in-box-vs-body.mdx)
+The thought experiment: can you truly understand "cold" without temperature sensors? Explore how embodied intelligence emerges from sensorimotor loops, not abstract reasoning.
+
+**Key Topics:**
+- The sensorimotor loop (sensors → perception → AI → actuators → environment)
+- How a robot learns "heavy" through joint torque sensors
+- The body shapes the mind (quadruped vs humanoid learning)
+- Sim-to-real gap: when the simulated body lies about physics
+
+**Reading Time:** 15 minutes
+
+---
+
+### [The Partner Economy](./03-partner-economy.mdx)
+Zoom out from individual robots to entire systems. How do humans, AI agents, and robots collaborate in modern warehouses and factories? The three-tier architecture that powers Amazon's automation.
+
+**Key Topics:**
+- Tier 1 (Human Strategic Layer): What humans do best
+- Tier 2 (AI Cognitive Layer): Language and vision models as "universal translators"
+- Tier 3 (Physical Execution Layer): Robots executing 30 Hz control loops
+- Real-world deployments (Tesla factory, Amazon warehouses, BMW assembly lines)
+
+**Reading Time:** 18 minutes
+
+---
+
+### [Why Humanoid Robots Matter (And Why Now)](./04-why-it-matters.mdx)
+The three convergences: hardware (Jetson revolution), data (YouTube's billion hours of human demos), and software (Isaac Sim's sim-to-real transfer). Why 2024-2025 is "the year of the humanoid."
+
+**Key Topics:**
+- Hardware revolution: $499 Jetson Orin Nano (40 TOPS) vs $10,000 Xeon workstations
+- Motor revolution: $200 Unitree servos vs $5,000 traditional actuators
+- Data abundance: Learning from human videos (only works for humanoid form factor)
+- Sim-to-real success: 85-90% transfer rate with domain randomization
+- Industry momentum: Tesla, Figure AI, 1X Technologies
+
+**Reading Time:** 20 minutes
+
+---
+
+### [Exercises](./05-exercises.mdx)
+Hands-on thought experiments and research tasks to solidify your understanding. Design a hospital delivery robot, classify Digital vs Physical AI scenarios, research humanoid robots, debug ROS 2 code.
+
+**Key Exercises:**
+1. Design a Physical AI system (three-tier architecture)
+2. Digital AI vs Physical AI classification
+3. Research assignment: Compare humanoid robots
+4. Sim-to-real gap prediction
+5. Code debugging: Find the `time.sleep()` bug
+6. Thought experiment: Robot trolley problem
+
+**Estimated Time:** 3-4 hours (spread over a week)
+
+---
+
+### [Summary](./06-summary.mdx)
+Key takeaways, hardware stack recap, and bridge to Chapter 2 (Hardware Setup). Includes a self-assessment checklist to verify you're ready for hands-on implementation.
+
+**Reading Time:** 8 minutes
+
+---
+
+## Prerequisites
+
+This is the **first chapter** of the textbook—no prior robotics knowledge required.
+
+**You should be comfortable with:**
+- Python programming (classes, functions, basic async/await)
+- Linux command line (navigating directories, running scripts)
+- High school physics (force, acceleration, basic kinematics)
+
+**You do NOT need:**
+- ROS 2 experience (we teach from scratch starting Chapter 2)
+- C++ knowledge (Python-only for this textbook)
+- Machine learning expertise (we explain VLA models as needed)
+
+---
+
+## Hardware References
+
+Throughout this chapter, we reference specific hardware that you'll use in later chapters:
+
+| Component | Model | Price | Purpose |
+|-----------|-------|-------|---------|
+| **Workstation GPU** | NVIDIA RTX 4070 Ti | ~$800 | Train VLA models in Isaac Sim |
+| **Edge AI Computer** | Jetson Orin Nano | $499 | Run ROS 2 nodes on robot (30 Hz) |
+| **RGB-D Camera** | Intel RealSense D435i | $379 | Depth perception + IMU |
+| **Quadruped Robot** | Unitree Go2 | $2,700 | Outdoor navigation, rough terrain |
+| **Humanoid Robot** | Unitree G1 | $16,000 | Manipulation tasks in human spaces |
+
+**Note:** You don't need to purchase hardware to complete this chapter (it's conceptual). Hardware requirements start in Chapter 2.
+
+---
+
+## Total Chapter Time
+
+- **Reading:** 78 minutes
+- **Exercises:** 3-4 hours
+- **Total:** ~5 hours
+
+---
+
+## Next Steps
+
+After completing this chapter:
+
+1. **Self-assess:** Can you answer all 7 questions in the Summary checklist?
+2. **Complete exercises:** Submit your hospital robot design and code debugging solutions
+3. **Prepare for Chapter 2:** Ensure you have Ubuntu 22.04 and an NVIDIA GPU ready
+4. **Join the discussion:** Share your Exercise 6 (trolley problem) answer in the course forum
+
+**When ready:** Proceed to [Chapter 2: Hardware Setup & ROS 2 Installation](../02-chapter-2-hardware-setup/index.mdx)
+
+---
+
+## Additional Resources
+
+- **Video Supplement:** [Tesla Optimus Gen 2 Demo](https://www.youtube.com/watch?v=cpraXaw7dyc) (official)
+- **Research Paper:** ["Physical Intelligence: Training Large-Scale Humanoid Policies"](https://physicalintelligence.ai) (Figure AI)
+- **Hardware Specs:** [Jetson Orin Nano Developer Guide](https://developer.nvidia.com/embedded/jetson-orin-nano-developer-kit)
+- **Industry Overview:** ["The Humanoid Robot Market 2024-2030"](https://www.mordorintelligence.com/industry-reports/humanoid-robot-market) (Market Research)
+
+---
+
+:::tip For Instructors
+This chapter works well as:
+- **Week 1 lecture material** (78 minutes of reading)
+- **Week 2 lab assignment** (Exercise 1: Hospital robot design)
+- **Discussion topic:** Exercise 6 (Robot trolley problem)
+
+**Assessment suggestions:**
+- Quiz on Digital vs Physical AI distinctions (10 questions)
+- Graded submission: Exercise 1 (design + hardware specs)
+- Code review: Exercise 5 (fix the `time.sleep()` bug)
+:::
+
+**Let's begin.** Click through to the [Introduction](./00-intro.mdx) to start Chapter 1.

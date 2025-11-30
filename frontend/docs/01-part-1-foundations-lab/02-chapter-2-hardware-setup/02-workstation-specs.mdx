@@ -1,0 +1,536 @@
+---
+id: workstation-setup
+title: "Workstation Setup: Ubuntu, CUDA, and Isaac Sim"
+description: "Step-by-step guide to installing Ubuntu 22.04, CUDA 12.x, and NVIDIA Isaac Sim for Physical AI development."
+sidebar_position: 2
+keywords:
+  - Ubuntu 22.04
+  - CUDA installation
+  - Isaac Sim
+  - RTX 4070 Ti
+  - Omniverse Launcher
+  - dual boot
+---
+
+# Workstation Setup: Ubuntu, CUDA, and Isaac Sim
+
+## Introduction: Your Digital Twin Environment
+
+The workstation serves one critical purpose: **simulate the entire robot system before deploying to hardware**.
+
+By the end of this section, you will have:
+1. **Ubuntu 22.04 LTS** running natively (not WSL2)
+2. **CUDA 12.6** installed and verified
+3. **Isaac Sim 4.2.0** rendering photorealistic scenes at 60 FPS
+4. **ROS 2 Humble** installed and communicating with simulated robots
+
+**Time Estimate**: 3-4 hours (mostly waiting for downloads).
+
+## Part 1: Ubuntu 22.04 Installation
+
+### Option A: Dedicated Machine (Recommended)
+If you're building a new workstation, install Ubuntu as the **only OS**. This avoids:
+- GRUB bootloader conflicts
+- Shared EFI partition issues
+- Windows Update overwriting bootloader
+
+**Steps**:
+1. Download Ubuntu 22.04.5 LTS Desktop ISO from [ubuntu.com/download/desktop](https://ubuntu.com/download/desktop)
+2. Create bootable USB using [Rufus](https://rufus.ie/) (Windows) or `dd` (Linux/macOS)
+3. Boot from USB (press F12/DEL during startup to access boot menu)
+4. Select "Erase disk and install Ubuntu" (WARNING: Deletes all existing data)
+5. Follow installer prompts (username, password, timezone)
+6. Reboot and remove USB drive
+
+### Option B: Dual-Boot with Windows (Advanced)
+If you need Windows for other tasks, dual-boot is possible but **requires careful partitioning**.
+
+:::danger Windows Fast Startup Corrupts Dual-Boot
+Windows "Fast Startup" hibernates instead of shutting down, locking NTFS partitions. Linux cannot mount locked partitions, causing boot failures.
+
+**Disable Fast Startup BEFORE installing Ubuntu**:
+1. Windows: Control Panel → Power Options → Choose what the power buttons do
+2. Uncheck "Turn on fast startup"
+3. Reboot Windows to apply
+:::
+
+**Dual-Boot Steps**:
+1. **In Windows**: Shrink C: drive using Disk Management (allocate 500GB for Ubuntu)
+2. Download Ubuntu 22.04.5 LTS ISO, create bootable USB
+3. Boot from USB, select "Install Ubuntu alongside Windows Boot Manager"
+4. Partition layout:
+   - `/` (root): 100 GB (ext4)
+   - `/home`: 350 GB (ext4, for datasets and models)
+   - `swap`: 32 GB (swap, equal to RAM)
+   - EFI: Use existing Windows EFI partition (DO NOT format)
+5. Install GRUB bootloader to EFI partition
+6. Reboot, select Ubuntu from GRUB menu
+
+**Post-Install**: Update GRUB timeout to give 10 seconds to choose OS:
+```bash
+sudo nano /etc/default/grub
+# Change: GRUB_TIMEOUT=10
+sudo update-grub
+```
+
+### Initial System Update
+```bash
+# Update package lists
+sudo apt update
+
+# Upgrade all packages (this may take 20-30 minutes)
+sudo apt upgrade -y
+
+# Install essential build tools
+sudo apt install -y build-essential git curl wget vim
+```
+
+## Part 2: NVIDIA Driver and CUDA Installation
+
+### Step 1: Verify GPU Detection
+```bash
+lspci | grep -i nvidia
+```
+
+**Expected Output** (RTX 4070 Ti):
+```
+01:00.0 VGA compatible controller: NVIDIA Corporation AD104 [GeForce RTX 4070 Ti] (rev a1)
+01:00.1 Audio device: NVIDIA Corporation AD104 High Definition Audio Controller (rev a1)
+```
+
+If you see "Kernel driver in use: nouveau", the open-source driver is loaded. We'll replace it with NVIDIA's proprietary driver.
+
+### Step 2: Install NVIDIA Driver (545.x)
+Ubuntu 22.04 includes NVIDIA drivers in the official repository.
+
+```bash
+# Add graphics-drivers PPA (latest stable drivers)
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt update
+
+# Install NVIDIA driver 545 (required for CUDA 12.6)
+sudo apt install -y nvidia-driver-545
+
+# Reboot to load driver
+sudo reboot
+```
+
+**Post-Reboot Verification**:
+```bash
+nvidia-smi
+```
+
+**Expected Output**:
+```
+Sat Nov 29 10:23:45 2024
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 545.29.06              Driver Version: 545.29.06      CUDA Version: 12.6     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4070 Ti   Off   |   00000000:01:00.0  On |                  N/A |
+| 30%   42C    P8             18W /  285W |     512MiB /  12282MiB |      2%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A      1234      G   /usr/lib/xorg/Xorg                            300MiB |
+|    0   N/A  N/A      2345      G   /usr/bin/gnome-shell                          150MiB |
++-----------------------------------------------------------------------------------------+
+```
+
+**Key Information**:
+- **Driver Version**: 545.29.06 (supports CUDA 12.6)
+- **CUDA Version**: 12.6 (maximum supported; you can install older CUDA versions)
+- **Memory-Usage**: 512MiB (Xorg + GNOME desktop environment)
+- **Available VRAM**: 12282 MiB - 512 MiB = **11.7 GB free**
+
+### Step 3: Install CUDA 12.6
+
+**Download CUDA Toolkit**:
+```bash
+# Download CUDA 12.6 .deb package (3.1 GB)
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+
+# Install repository key
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+
+# Update apt and install CUDA
+sudo apt update
+sudo apt install -y cuda-toolkit-12-6
+```
+
+**Set Environment Variables**:
+```bash
+# Add to ~/.bashrc for persistent PATH
+echo 'export PATH=/usr/local/cuda-12.6/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+
+# Reload bash config
+source ~/.bashrc
+```
+
+**Verify CUDA Installation**:
+```bash
+nvcc --version
+```
+
+**Expected Output**:
+```
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Wed_Sep_18_11:24:32_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.77
+Build cuda_12.6.r12.6/compiler.34714021_0
+```
+
+### Step 4: Test CUDA with Sample Program
+```bash
+# Copy CUDA samples to home directory
+cp -r /usr/local/cuda-12.6/samples ~/cuda-samples
+cd ~/cuda-samples/1_Utilities/deviceQuery
+
+# Compile and run
+make
+./deviceQuery
+```
+
+**Expected Output** (truncated):
+```
+./deviceQuery Starting...
+
+ CUDA Device Query (Runtime API) version (CUDART static linking)
+
+Detected 1 CUDA Capable device(s)
+
+Device 0: "NVIDIA GeForce RTX 4070 Ti"
+  CUDA Driver Version / Runtime Version          12.6 / 12.6
+  CUDA Capability Major/Minor version number:    8.9
+  Total amount of global memory:                 12282 MBytes (12879069184 bytes)
+  (060) Multiprocessors, (128) CUDA Cores/MP:    7680 CUDA Cores
+  GPU Max Clock rate:                            2610 MHz (2.61 GHz)
+  Memory Clock rate:                             10501 Mhz
+  Memory Bus Width:                              192-bit
+  L2 Cache Size:                                 49152 bytes
+  Maximum Texture Dimension Size (x,y,z)         1D=(131072), 2D=(131072, 65536), 3D=(16384, 16384, 16384)
+  Total amount of constant memory:               65536 bytes
+  Total amount of shared memory per block:       49152 bytes
+  Warp size:                                     32
+  Maximum number of threads per multiprocessor:  1536
+  Maximum number of threads per block:           1024
+
+deviceQuery, CUDA Driver = CUDART, CUDA Driver Version = 12.6, CUDA Runtime Version = 12.6, NumDevs = 1
+Result = PASS
+```
+
+**Critical Metrics**:
+- **7680 CUDA Cores**: Parallel threads for rendering and training
+- **12282 MB VRAM**: Enough for Isaac Sim scene (10-12 GB)
+- **Memory Bus Width: 192-bit**: 504 GB/s bandwidth (texture streaming for ray tracing)
+
+## Part 3: Install NVIDIA Omniverse and Isaac Sim
+
+### Step 1: Download Omniverse Launcher
+```bash
+# Create directory for Omniverse
+mkdir -p ~/omniverse
+cd ~/omniverse
+
+# Download launcher (350 MB)
+wget https://install.launcher.omniverse.nvidia.com/installers/omniverse-launcher-linux.AppImage
+
+# Make executable
+chmod +x omniverse-launcher-linux.AppImage
+```
+
+### Step 2: Launch Omniverse
+```bash
+./omniverse-launcher-linux.AppImage
+```
+
+**First-Time Setup**:
+1. Accept EULA
+2. Sign in with NVIDIA account (create free account if needed)
+3. Launcher will update itself (2-3 minutes)
+
+### Step 3: Install Isaac Sim 4.2.0
+
+**In Omniverse Launcher**:
+1. Click "Exchange" tab
+2. Search for "Isaac Sim"
+3. Click "Install" on **Isaac Sim 4.2.0** (NOT 2023.x legacy versions)
+4. Installation location: `/home/USERNAME/.local/share/ov/pkg/isaac-sim-4.2.0/`
+5. Download size: **27 GB** (allow 30-60 minutes depending on internet speed)
+
+:::warning GPU Will Throttle During Install
+The Omniverse installer uses GPU for decompression. Your fans will spin up. This is normal.
+Monitor temperature:
+```bash
+watch -n 1 nvidia-smi
+```
+If GPU hits 85°C, pause installation and improve case airflow.
+:::
+
+### Step 4: Verify Isaac Sim Installation
+
+**Launch Isaac Sim**:
+```bash
+# Navigate to Isaac Sim directory
+cd ~/.local/share/ov/pkg/isaac-sim-4.2.0/
+
+# Launch (first launch takes 3-5 minutes to compile shaders)
+./isaac-sim.sh
+```
+
+**First Launch Output**:
+```
+[Info] [omni.isaac.kit.simulation_app] Loading Isaac Sim 4.2.0
+[Info] [omni.kit.plugin] Loading 247 plugins...
+[Info] [omni.rtx.shadercache] Compiling shaders (this only happens once)...
+[Info] Shader cache: 0/1247 compiled
+[Info] Shader cache: 156/1247 compiled
+...
+[Info] Shader cache: 1247/1247 compiled
+[Info] [omni.isaac.ui] Isaac Sim UI ready
+```
+
+**Load Sample Scene**:
+1. In Isaac Sim: File → Open
+2. Navigate to: `omniverse://localhost/NVIDIA/Samples/Isaac/4.2/Isaac/Robots/Carter/carter_warehouse_navigation.usd`
+3. Click "Open"
+4. Press **Spacebar** to start simulation
+
+**Expected Behavior**:
+- Carter robot (differential drive) navigates warehouse
+- RGB camera stream updates in bottom-left viewport
+- FPS counter (top-right) shows **55-65 FPS**
+- GPU usage in `nvidia-smi`: 8-10 GB VRAM
+
+**Benchmark Performance**:
+```bash
+# In Isaac Sim Python console (Window → Script Editor)
+from omni.isaac.core.utils.benchmark import benchmark_usd
+benchmark_usd("/NVIDIA/Samples/Isaac/4.2/Isaac/Robots/Carter/carter_warehouse_navigation.usd")
+```
+
+**Expected Output**:
+```
+Physics step time: 0.8-1.2 ms
+Render time: 14-18 ms
+Total FPS: 58-62
+```
+
+:::tip Troubleshooting: Black Screen
+If Isaac Sim window is black:
+1. Check GPU is being used: `nvidia-smi` should show isaac-sim process
+2. Verify driver: Must be 545.x+ (check `nvidia-smi` header)
+3. Reset shader cache: `rm -rf ~/.cache/ov/*` then restart Isaac Sim
+:::
+
+## Part 4: Install ROS 2 Humble
+
+Isaac Sim includes a built-in ROS 2 bridge, but we need ROS 2 Humble for standalone development.
+
+### Installation Steps
+```bash
+# Add ROS 2 repository
+sudo apt install -y software-properties-common
+sudo add-apt-repository universe
+sudo apt update
+
+# Add ROS 2 GPG key
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+# Add ROS 2 repository
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+# Install ROS 2 Humble Desktop (includes RViz2, rqt tools)
+sudo apt update
+sudo apt install -y ros-humble-desktop
+
+# Install development tools
+sudo apt install -y python3-colcon-common-extensions python3-rosdep
+```
+
+### Initialize rosdep
+```bash
+# Initialize rosdep (dependency management)
+sudo rosdep init
+rosdep update
+```
+
+### Setup Environment
+```bash
+# Add to ~/.bashrc
+echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+ros2 --version
+```
+
+**Expected Output**:
+```
+ros2 cli version: 0.25.7
+```
+
+### Test ROS 2 with Turtlesim
+```bash
+# Terminal 1: Run turtlesim node
+ros2 run turtlesim turtlesim_node
+
+# Terminal 2: Run keyboard teleop
+ros2 run turtlesim turtle_teleop_key
+```
+
+**Expected Behavior**:
+- Blue window with turtle appears
+- Arrow keys move turtle
+- `ros2 topic list` shows `/turtle1/cmd_vel`, `/turtle1/pose`
+
+## Part 5: Configure Isaac Sim ROS 2 Bridge
+
+Isaac Sim can publish sensor data (RGB-D, LiDAR) to ROS 2 topics.
+
+### Enable ROS 2 Bridge in Isaac Sim
+
+**Steps**:
+1. Launch Isaac Sim: `~/.local/share/ov/pkg/isaac-sim-4.2.0/isaac-sim.sh`
+2. Load Carter warehouse scene (File → Open → `carter_warehouse_navigation.usd`)
+3. Window → Extensions
+4. Search "ROS2 Bridge"
+5. Enable **omni.isaac.ros2_bridge**
+6. Click "Autoload" checkbox (loads bridge on startup)
+
+### Publish Camera Data to ROS 2
+
+**In Isaac Sim Script Editor** (Window → Script Editor):
+```python
+import omni.graph.core as og
+
+# Create ROS 2 camera publisher graph
+keys = og.Controller.Keys
+(ros_camera_graph, nodes, _, _) = og.Controller.edit(
+    {
+        "graph_path": "/ActionGraph",
+        "evaluator_name": "execution",
+    },
+    {
+        keys.CREATE_NODES: [
+            ("OnPlaybackTick", "omni.graph.action.OnPlaybackTick"),
+            ("ROS2CameraHelper", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+        ],
+        keys.CONNECT: [
+            ("OnPlaybackTick.outputs:tick", "ROS2CameraHelper.inputs:execIn"),
+        ],
+        keys.SET_VALUES: [
+            ("ROS2CameraHelper.inputs:topicName", "/carter/camera/rgb"),
+            ("ROS2CameraHelper.inputs:frameId", "camera"),
+            ("ROS2CameraHelper.inputs:cameraPrim", "/Carter/chassis_link/camera"),
+        ],
+    },
+)
+```
+
+### Verify ROS 2 Topics
+
+**In Terminal** (outside Isaac Sim):
+```bash
+# List available topics
+ros2 topic list
+```
+
+**Expected Output**:
+```
+/carter/camera/rgb
+/carter/camera/camera_info
+/rosout
+/parameter_events
+```
+
+**Subscribe to Camera Stream**:
+```bash
+# Install image visualization tool
+sudo apt install -y ros-humble-rqt-image-view
+
+# View RGB stream
+ros2 run rqt_image_view rqt_image_view
+```
+
+**Expected Behavior**:
+- Window appears with dropdown menu
+- Select `/carter/camera/rgb`
+- Live camera feed from Isaac Sim appears (640×480 @ 30 FPS)
+
+## Summary: Workstation Ready
+
+You now have a fully operational Physical AI workstation:
+
+| Component | Version | Verification Command |
+|-----------|---------|---------------------|
+| **OS** | Ubuntu 22.04.5 LTS | `lsb_release -a` |
+| **NVIDIA Driver** | 545.29.06 | `nvidia-smi` |
+| **CUDA** | 12.6.77 | `nvcc --version` |
+| **Isaac Sim** | 4.2.0 | Renders Carter scene at 60 FPS |
+| **ROS 2** | Humble Hawksbill | `ros2 --version` |
+| **ROS 2 Bridge** | Active | `ros2 topic list` shows Isaac Sim topics |
+
+**Storage Consumption**:
+- Ubuntu system: 15 GB
+- CUDA toolkit: 6 GB
+- Isaac Sim + assets: 35 GB
+- ROS 2 Humble: 4 GB
+- **Total**: ~60 GB used of 500 GB partition
+
+**Next Section**: Configure Jetson Orin Nano as your edge inference device.
+
+## Troubleshooting
+
+### Issue: `nvidia-smi` Shows "NVIDIA-SMI has failed..."
+**Cause**: Driver not loaded or wrong kernel version.
+
+**Fix**:
+```bash
+# Check if driver module is loaded
+lsmod | grep nvidia
+
+# If empty, reinstall driver
+sudo apt purge nvidia-*
+sudo apt install nvidia-driver-545
+sudo reboot
+```
+
+### Issue: Isaac Sim Crashes with "Out of Memory"
+**Cause**: Insufficient VRAM for selected scene.
+
+**Fix**:
+1. Close all other GPU applications (browsers with hardware acceleration)
+2. Reduce scene complexity:
+   - Isaac Sim → Edit → Preferences → Rendering
+   - Set "Max Samples" to 128 (default 256)
+   - Disable "Enable Ray Tracing Shadows" for simple scenes
+
+### Issue: ROS 2 Topics Not Visible
+**Cause**: ROS_DOMAIN_ID mismatch or firewall blocking multicast.
+
+**Fix**:
+```bash
+# Check firewall status
+sudo ufw status
+
+# If active, allow ROS 2 multicast
+sudo ufw allow from 224.0.0.0/4
+sudo ufw allow from 239.255.0.0/16
+
+# Set ROS_DOMAIN_ID to 0 (default)
+echo "export ROS_DOMAIN_ID=0" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Your workstation is now ready for Physical AI development. Next, we'll configure the Jetson Orin Nano to deploy models to the robot.

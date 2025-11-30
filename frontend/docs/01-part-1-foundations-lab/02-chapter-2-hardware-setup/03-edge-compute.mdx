@@ -1,0 +1,610 @@
+---
+id: jetson-setup
+title: "Jetson Orin Nano Setup: Flashing and Configuration"
+description: "Complete guide to flashing JetPack 6.0 and installing ROS 2 Humble on NVIDIA Jetson Orin Nano Super Dev Kit."
+sidebar_position: 3
+keywords:
+  - Jetson Orin Nano
+  - JetPack 6.0
+  - ROS 2 Humble
+  - headless setup
+  - SSH configuration
+  - TensorRT
+---
+
+# Jetson Orin Nano Setup: Flashing and Configuration
+
+## Introduction: The Robot's Brain
+
+The **NVIDIA Jetson Orin Nano Super Dev Kit** is the compute platform that runs **on the robot**. Unlike the workstation (which simulates), the Jetson executes:
+
+1. **Real-time perception**: Process RealSense RGB-D streams at 30 FPS
+2. **Neural network inference**: Run VLA models in 8ms using TensorRT
+3. **ROS 2 navigation stack**: Nav2 path planning and obstacle avoidance
+4. **Motor control**: Publish `/cmd_vel` commands to robot actuators
+
+**Key Specifications**:
+- **AI Performance**: 40 TOPS (Tera Operations Per Second)
+- **GPU**: 1024 CUDA cores + 32 Tensor Cores (Ampere architecture)
+- **CPU**: 6-core Arm Cortex-A78AE @ 2.0 GHz
+- **Memory**: 8GB LPDDR5 (shared CPU/GPU, zero-copy architecture)
+- **Storage**: microSD slot (use 256GB+ for models and datasets)
+- **Power**: 7-15W (can run on battery, vs 350W workstation)
+- **Connectivity**: Wi-Fi 6E, Gigabit Ethernet, Bluetooth 5.2
+
+**Why This Matters**:
+- **7-15W power budget**: A 10,000 mAh battery provides 5-8 hours of runtime
+- **Shared memory**: Camera frame copied once to memory, accessible by CPU (ROS 2) and GPU (inference) without PCIe transfer
+- **Tensor Cores**: INT8 matrix multiplication at 40 TOPS (vs 0.2 TOPS on Raspberry Pi CPU)
+
+**Time Estimate**: 2-3 hours (microSD flashing is slow).
+
+## Part 1: Unboxing and Initial Setup
+
+### What's in the Box
+- Jetson Orin Nano Super module (soldered to carrier board)
+- Power supply (5V 4A USB-C, 20W)
+- Antenna kit (Wi-Fi/Bluetooth, 2× dipole antennas)
+- Quick start guide
+
+### What You Need to Provide
+- **microSD card**: 256GB+ UHS-I (A2 rating recommended for faster I/O)
+  - Example: SanDisk Extreme 256GB ($35)
+- **USB keyboard + mouse** (for initial setup, optional after SSH configured)
+- **HDMI monitor** (for initial setup, optional after SSH configured)
+- **Host computer** (Windows/Linux/macOS for flashing microSD)
+
+### Attach Wi-Fi Antennas
+**Critical Step**: Attach both antennas **before powering on**. Operating the Jetson without antennas can damage the Wi-Fi module.
+
+1. Locate two U.FL connectors on the carrier board (near M.2 slot)
+2. Snap antenna cables onto connectors (you'll feel a click)
+3. Screw antenna mounts into carrier board standoffs
+
+## Part 2: Flash JetPack 6.0 to microSD
+
+JetPack is NVIDIA's SDK for Jetson, including:
+- **Ubuntu 20.04** (Ubuntu 22.04 support coming in JetPack 6.1)
+- **CUDA 12.2**
+- **TensorRT 8.6** (INT8 inference optimization)
+- **VPI 3.0** (Vision Programming Interface for image processing)
+- **Multimedia API** (hardware video encoding/decoding)
+
+### Option A: Using NVIDIA SDK Manager (Linux Host Only)
+
+**Requirements**: Ubuntu 20.04/22.04 host machine.
+
+:::warning SDK Manager Does Not Run on Windows/macOS
+If your host is Windows or macOS, skip to Option B (Balena Etcher method).
+:::
+
+**Steps**:
+1. Download SDK Manager from [developer.nvidia.com/sdk-manager](https://developer.nvidia.com/sdk-manager)
+2. Install: `sudo apt install ./sdkmanager_[version].deb`
+3. Launch: `sdkmanager`
+4. Login with NVIDIA Developer account
+5. Select:
+   - Product: Jetson
+   - Hardware: Jetson Orin Nano (8GB)
+   - JetPack: 6.0 (rev 2)
+   - Target OS: JetPack 6.0 (L4T 36.3)
+6. Click "Continue" → Accept terms
+7. Insert microSD into **host machine** (not Jetson)
+8. SDK Manager will flash microSD (30-45 minutes)
+
+### Option B: Manual Flashing (Windows/macOS/Linux)
+
+**Step 1: Download JetPack Image**
+```bash
+# From host machine (any OS)
+# Navigate to: https://developer.nvidia.com/embedded/jetpack-sdk-60
+# Download: Jetson Orin Nano Developer Kit SD Card Image (6.0)
+# File: jetson-orin-nano-devkit-sd-card-image-r36.3.0.zip (15 GB)
+```
+
+**Step 2: Extract Image**
+```bash
+# On Linux/macOS
+unzip jetson-orin-nano-devkit-sd-card-image-r36.3.0.zip
+
+# On Windows: Use 7-Zip or built-in extractor
+```
+
+**Result**: `sd-blob.img` (approximately 14 GB uncompressed)
+
+**Step 3: Flash microSD with Balena Etcher**
+1. Download Balena Etcher: [etcher.balena.io](https://etcher.balena.io/)
+2. Insert microSD into host computer (use adapter if needed)
+3. Launch Balena Etcher
+4. "Flash from file" → Select `sd-blob.img`
+5. "Select target" → Select microSD card (verify drive letter to avoid overwriting wrong disk)
+6. Click "Flash!" (15-20 minutes for 256GB card)
+7. Wait for "Flash Complete" confirmation
+
+:::danger Verify Target Drive
+Balena Etcher will **erase everything** on the selected drive. Double-check you selected the microSD card, not your system drive.
+:::
+
+## Part 3: First Boot and Initial Configuration
+
+### Boot Jetson
+
+1. Insert flashed microSD into Jetson's card slot (on underside of carrier board)
+2. Connect HDMI monitor, USB keyboard, USB mouse
+3. Connect Ethernet cable (optional, for faster initial updates)
+4. Connect USB-C power supply (20W)
+5. Jetson will boot automatically (green LED lights up)
+
+**First Boot Timeline**:
+- 0:00 - Green LED on, black screen
+- 0:45 - Ubuntu logo appears
+- 1:30 - "Initial Setup" wizard appears
+
+### Initial Setup Wizard
+
+**System Configuration**:
+1. **Language**: Select English (or your preference)
+2. **Keyboard Layout**: Select your layout (e.g., English US)
+3. **Region & Timezone**: Select your timezone
+4. **User Account**:
+   - Name: `jetson` (or your preference)
+   - Username: `jetson`
+   - Password: (choose strong password)
+   - Hostname: `jetson-orin-nano`
+5. **APP Partition Size**: Use maximum (expands to full microSD capacity)
+6. **nvpmodel Mode**: Select **MAXN** (maximum performance, 15W)
+7. **Chromium Privacy**: Accept defaults
+8. Click "Finish" → Reboot
+
+**Post-Reboot**:
+- Desktop environment (LXDE) loads
+- Default login: `jetson` / (your password)
+
+### Update System
+```bash
+# Open Terminal (Ctrl + Alt + T)
+
+# Update package lists
+sudo apt update
+
+# Upgrade all packages (this takes 20-30 minutes on first boot)
+sudo apt upgrade -y
+
+# Install essential tools
+sudo apt install -y nano curl wget git build-essential
+```
+
+### Check CUDA Installation
+```bash
+# Verify CUDA is installed
+/usr/local/cuda/bin/nvcc --version
+```
+
+**Expected Output**:
+```
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Aug_20_03:14:12_PDT_2024
+Cuda compilation tools, release 12.2, V12.2.140
+Build cuda_12.2.r12.2/compiler.34462805_0
+```
+
+### Verify GPU
+```bash
+sudo /usr/bin/tegrastats
+```
+
+**Expected Output** (updates every second):
+```
+11-29-2024 14:32:10 RAM 1205/7467MB (lfb 1678x4MB) SWAP 0/3733MB (cached 0MB) CPU [5%@2014,3%@2014,2%@2014,4%@2014,1%@2014,3%@2014] GR3D_FREQ 56% cpu@42.5C soc2@40.8C soc0@39.2C tj@42.5C soc1@41C main@40C
+```
+
+**Key Metrics**:
+- **RAM**: 1205 MB used of 7467 MB (OS + desktop environment)
+- **CPU**: 6 cores at 2014 MHz (2.0 GHz)
+- **GR3D_FREQ**: GPU utilization (56% = idle desktop)
+- **Temperatures**: 40-42°C (safe operating range is up to 85°C)
+
+Press **Ctrl+C** to stop.
+
+## Part 4: Configure Headless Operation (SSH)
+
+Once SSH is configured, you can disconnect monitor/keyboard and access Jetson remotely.
+
+### Enable SSH Server
+```bash
+# SSH server is installed by default, verify status
+sudo systemctl status ssh
+```
+
+**Expected Output**:
+```
+● ssh.service - OpenBSD Secure Shell server
+     Loaded: loaded (/lib/systemd/system/ssh.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sat 2024-11-29 14:25:32 PST; 10min ago
+```
+
+If not running:
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+```
+
+### Find Jetson's IP Address
+
+**On Jetson**:
+```bash
+hostname -I
+```
+
+**Expected Output** (your IP will differ):
+```
+192.168.1.150
+```
+
+Alternatively, if connected to monitor:
+```bash
+ip addr show wlan0  # Wi-Fi
+ip addr show eth0   # Ethernet
+```
+
+**From Host Computer** (same network):
+```bash
+# Linux/macOS
+ping jetson-orin-nano.local
+
+# Windows (install Bonjour if .local doesn't resolve)
+ping 192.168.1.150
+```
+
+### SSH from Host Computer
+
+**From Linux/macOS**:
+```bash
+ssh jetson@192.168.1.150
+# Enter password when prompted
+```
+
+**From Windows** (PowerShell or install PuTTY):
+```powershell
+ssh jetson@192.168.1.150
+```
+
+**Expected Output**:
+```
+Welcome to Ubuntu 20.04.6 LTS (GNU/Linux 5.15.136-tegra aarch64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+jetson@jetson-orin-nano:~$
+```
+
+### Optional: Setup SSH Key Authentication (No Password)
+
+**On Host Computer**:
+```bash
+# Generate SSH key (if you don't have one)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+# Press Enter to accept default location (~/.ssh/id_ed25519)
+# Press Enter twice to skip passphrase
+
+# Copy public key to Jetson
+ssh-copy-id jetson@192.168.1.150
+# Enter password one last time
+```
+
+**Test**:
+```bash
+ssh jetson@192.168.1.150
+# Should login without password prompt
+```
+
+## Part 5: Install ROS 2 Humble
+
+JetPack 6.0 ships with Ubuntu 20.04, which officially supports ROS 2 Foxy. However, **we need ROS 2 Humble** (same version as workstation) for compatibility.
+
+### Add ROS 2 Humble Repository
+
+**On Jetson** (via SSH or terminal):
+```bash
+# Add universe repository
+sudo apt install -y software-properties-common
+sudo add-apt-repository universe
+
+# Add ROS 2 GPG key
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+# Add ROS 2 repository (Humble builds for Ubuntu 22.04, but compatible with 20.04)
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+```
+
+:::warning Ubuntu 20.04 Compatibility
+ROS 2 Humble is officially supported on Ubuntu 22.04, but NVIDIA provides Humble builds for Jetson's Ubuntu 20.04. This is a **special NVIDIA-maintained repository**.
+:::
+
+### Install ROS 2 Humble Base
+
+```bash
+# Update package lists
+sudo apt update
+
+# Install ROS 2 Humble Base (no GUI tools, saves space)
+sudo apt install -y ros-humble-ros-base
+
+# Install Python3 development tools
+sudo apt install -y python3-colcon-common-extensions python3-rosdep
+
+# Initialize rosdep
+sudo rosdep init
+rosdep update
+```
+
+**Why `ros-base` instead of `ros-desktop`?**
+- `ros-desktop` includes RViz2 (3D visualization) which requires X11 server
+- Jetson runs headless (no monitor), RViz2 runs on workstation
+- `ros-base` is 400 MB smaller, leaves more space for models
+
+### Setup Environment
+
+```bash
+# Add ROS 2 to bashrc
+echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+ros2 --version
+```
+
+**Expected Output**:
+```
+ros2 cli version: 0.25.7
+```
+
+### Set ROS_DOMAIN_ID (Match Workstation)
+
+ROS 2 nodes on different machines communicate if they share the same `ROS_DOMAIN_ID` (0-101).
+
+```bash
+# Set domain ID to 0 (default)
+echo "export ROS_DOMAIN_ID=0" >> ~/.bashrc
+source ~/.bashrc
+
+# Verify
+echo $ROS_DOMAIN_ID
+```
+
+**Expected Output**: `0`
+
+**On Workstation** (also set to 0):
+```bash
+echo "export ROS_DOMAIN_ID=0" >> ~/.bashrc
+source ~/.bashrc
+```
+
+## Part 6: Install TensorRT Python Bindings
+
+TensorRT is pre-installed with JetPack, but Python bindings need manual installation.
+
+```bash
+# Install TensorRT Python package
+sudo apt install -y python3-libnvinfer python3-libnvinfer-dev
+
+# Verify TensorRT version
+python3 -c "import tensorrt; print(tensorrt.__version__)"
+```
+
+**Expected Output**:
+```
+8.6.2.3
+```
+
+### Test TensorRT with Sample Model
+
+**Download ResNet-50 ONNX Model** (for testing):
+```bash
+mkdir -p ~/models
+cd ~/models
+wget https://github.com/onnx/models/raw/main/validated/vision/classification/resnet/model/resnet50-v2-7.onnx
+```
+
+**Convert to TensorRT Engine** (optimized for INT8):
+```bash
+/usr/src/tensorrt/bin/trtexec \
+  --onnx=resnet50-v2-7.onnx \
+  --saveEngine=resnet50_fp16.trt \
+  --fp16 \
+  --workspace=2048
+```
+
+**Expected Output** (truncated):
+```
+[I] [TRT] Detected 1 input and 1 output network tensors.
+[I] [TRT] Total Host Persistent Memory: 89776 bytes
+[I] [TRT] Total Device Persistent Memory: 0 bytes
+[I] [TRT] Total Scratch Memory: 35651584 bytes
+[I] GPU Compute Time: min = 6.84229 ms, max = 8.12305 ms, mean = 7.23457 ms, median = 7.19336 ms
+[I] Total Time: 7.89 ms
+[I] Throughput: 126.7 qps
+```
+
+**Key Metrics**:
+- **Mean inference time**: 7.23 ms (138 FPS throughput)
+- **INT8 optimization** would reduce to ~4 ms (250 FPS)
+
+## Part 7: Network Configuration for ROS 2
+
+### Verify Multicast Support
+
+ROS 2 DDS uses multicast UDP for topic discovery.
+
+```bash
+# Test multicast routing
+ip route show | grep 224
+```
+
+**Expected Output**:
+```
+224.0.0.0/4 dev wlan0 scope link
+```
+
+If empty, add multicast route:
+```bash
+sudo ip route add 224.0.0.0/4 dev wlan0
+```
+
+### Firewall Configuration
+
+**Check if firewall is active**:
+```bash
+sudo ufw status
+```
+
+**Expected Output**: `Status: inactive` (Jetson default)
+
+If active, allow ROS 2:
+```bash
+sudo ufw allow from 224.0.0.0/4
+sudo ufw allow from 239.255.0.0/16
+```
+
+### Test Cross-Machine ROS 2 Communication
+
+**On Jetson**:
+```bash
+ros2 run demo_nodes_cpp talker
+```
+
+**Expected Output**:
+```
+[INFO] [1701287345.123456789] [talker]: Publishing: 'Hello World: 1'
+[INFO] [1701287346.123456789] [talker]: Publishing: 'Hello World: 2'
+```
+
+**On Workstation** (simultaneously):
+```bash
+ros2 run demo_nodes_cpp listener
+```
+
+**Expected Output**:
+```
+[INFO] [1701287345.234567890] [listener]: I heard: [Hello World: 1]
+[INFO] [1701287346.234567890] [listener]: I heard: [Hello World: 2]
+```
+
+**Success Criteria**:
+- Workstation receives messages published by Jetson
+- Latency < 10ms on local network (check with `ros2 topic hz /chatter`)
+
+## Part 8: Power Mode Configuration
+
+Jetson supports multiple power profiles balancing performance and battery life.
+
+### View Available Modes
+```bash
+sudo /usr/bin/nvpmodel -q
+```
+
+**Expected Output**:
+```
+NV Power Mode: MAXN
+0: MAXN (Default)
+1: 15W
+2: 10W
+```
+
+### Performance Benchmarks by Mode
+
+| Mode | CPU Freq | GPU Freq | Power | ResNet-50 Inference |
+|------|----------|----------|-------|---------------------|
+| **MAXN** | 2.0 GHz | 625 MHz | 15W | 7.2 ms |
+| **15W** | 1.5 GHz | 510 MHz | 12W | 9.8 ms |
+| **10W** | 1.2 GHz | 306 MHz | 8W | 14.5 ms |
+
+### Set Power Mode
+```bash
+# Maximum performance (for stationary robots with power supply)
+sudo /usr/bin/nvpmodel -m 0
+
+# 10W mode (for battery-powered robots)
+sudo /usr/bin/nvpmodel -m 2
+```
+
+**Recommendation**: Use **MAXN** during development, switch to **10W** for deployment if battery-powered.
+
+## Summary: Jetson Ready for Deployment
+
+Your Jetson Orin Nano is now configured:
+
+| Component | Version | Verification |
+|-----------|---------|--------------|
+| **OS** | Ubuntu 20.04 LTS (JetPack 6.0) | `cat /etc/lsb-release` |
+| **CUDA** | 12.2 | `/usr/local/cuda/bin/nvcc --version` |
+| **TensorRT** | 8.6.2 | `python3 -c "import tensorrt; print(tensorrt.__version__)"` |
+| **ROS 2** | Humble Hawksbill | `ros2 --version` |
+| **Network** | Connected to workstation | `ros2 topic list` shows shared topics |
+| **Power Mode** | MAXN (15W) | `sudo nvpmodel -q` |
+
+**Storage Usage**:
+- JetPack system: 8 GB
+- ROS 2 Humble: 1.5 GB
+- TensorRT models: ~500 MB
+- **Available**: ~240 GB on 256GB microSD
+
+**Next Section**: Install and configure Intel RealSense D435i camera.
+
+## Troubleshooting
+
+### Issue: SSH Connection Refused
+**Cause**: SSH server not running or wrong IP address.
+
+**Fix**:
+```bash
+# On Jetson (with monitor)
+sudo systemctl start ssh
+
+# Find IP
+hostname -I
+```
+
+### Issue: ROS 2 Topics Not Visible from Workstation
+**Cause**: Different `ROS_DOMAIN_ID` or multicast blocked.
+
+**Fix**:
+```bash
+# On both Jetson and Workstation
+echo $ROS_DOMAIN_ID  # Must be same value (e.g., 0)
+
+# If different, set to same value
+export ROS_DOMAIN_ID=0
+echo "export ROS_DOMAIN_ID=0" >> ~/.bashrc
+```
+
+### Issue: TensorRT Conversion Fails with "Out of Memory"
+**Cause**: Insufficient shared memory (GPU/CPU fight for 8GB pool).
+
+**Fix**:
+```bash
+# Close all applications
+pkill -9 chromium  # If browser is running
+
+# Reduce workspace size in trtexec
+/usr/src/tensorrt/bin/trtexec \
+  --onnx=model.onnx \
+  --saveEngine=model.trt \
+  --workspace=1024  # Reduced from 2048 MB
+```
+
+### Issue: Jetson Overheating (85°C+)
+**Cause**: Inadequate cooling in MAXN mode.
+
+**Fix**:
+```bash
+# Add heatsink + fan (Noctua NF-A4x10, $15)
+# Or reduce power mode
+sudo nvpmodel -m 2  # 10W mode runs cooler
+```
+
+Your edge compute platform is operational. Next: Integrate the Intel RealSense D435i for robot perception.

@@ -1,0 +1,112 @@
+# TypeScript Type Definition for Docusaurus Sidebar Category
+# Feature: 002-part1-foundations-lab
+# Purpose: Define structure for Part I sidebar category in sidebars.ts
+
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "Sidebar Category Schema"
+description: "Schema for Docusaurus sidebar category configuration (Part I: Foundations & Lab)"
+type: object
+
+properties:
+  type:
+    type: string
+    const: "category"
+    description: "Sidebar item type (must be 'category' for grouping chapters)"
+
+  label:
+    type: string
+    description: "Display name in sidebar navigation"
+    examples:
+      - "Part I: Foundations & Lab"
+
+  collapsible:
+    type: boolean
+    description: "Whether category can be collapsed by user"
+    default: true
+
+  collapsed:
+    type: boolean
+    description: "Default state (true = collapsed on page load, false = expanded)"
+    default: false  # Part I should be expanded by default (foundational content)
+
+  items:
+    type: array
+    description: "Array of doc IDs or nested categories within this category"
+    minItems: 1
+    items:
+      type: string
+      description: "Doc ID matching MDX file frontmatter id field"
+      pattern: "^[a-z0-9-/]+$"
+    examples:
+      - [
+          "01-part-1-foundations-lab/01-chapter-1-embodied-ai",
+          "01-part-1-foundations-lab/02-chapter-2-hardware-setup"
+        ]
+
+  link:
+    type: object
+    description: "Optional link for category itself (if category has a landing page)"
+    properties:
+      type:
+        type: string
+        const: "doc"
+      id:
+        type: string
+        description: "Doc ID for category landing page"
+    required:
+      - type
+      - id
+    additionalProperties: false
+
+required:
+  - type
+  - label
+  - items
+
+additionalProperties: false
+
+# Validation Example (Part I Category Configuration):
+# {
+#   type: 'category',
+#   label: 'Part I: Foundations & Lab',
+#   collapsible: true,
+#   collapsed: false,
+#   items: [
+#     '01-part-1-foundations-lab/01-chapter-1-embodied-ai',
+#     '01-part-1-foundations-lab/02-chapter-2-hardware-setup',
+#   ],
+# }
+
+# TypeScript Type (equivalent):
+# interface SidebarCategory {
+#   type: 'category';
+#   label: string;
+#   collapsible: boolean;
+#   collapsed: boolean;
+#   items: string[];
+#   link?: {
+#     type: 'doc';
+#     id: string;
+#   };
+# }
+
+# Usage in sidebars.ts:
+# import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+#
+# const sidebars: SidebarsConfig = {
+#   tutorialSidebar: [
+#     {
+#       type: 'category',
+#       label: 'Part I: Foundations & Lab',
+#       collapsible: true,
+#       collapsed: false,
+#       items: [
+#         '01-part-1-foundations-lab/01-chapter-1-embodied-ai',
+#         '01-part-1-foundations-lab/02-chapter-2-hardware-setup',
+#       ],
+#     },
+#     // ... other categories (Module 1-4)
+#   ],
+# };
+#
+# export default sidebars;

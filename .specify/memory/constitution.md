@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report:
-- Version change: [none] → 1.0.0
-- Modified principles: N/A (initial version)
-- Added sections: All sections (initial creation)
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: II. Technical Accuracy & Verifiability
+- Added sections: N/A
 - Removed sections: N/A
 - Templates requiring updates:
   ✅ plan-template.md: Reviewed - Constitution Check section will reference these principles
@@ -46,6 +46,7 @@ Sync Impact Report:
 - Links to official docs for deeper dives
 - All code examples validated for runnability before commit
 - AI-generated content MUST be reviewed for accuracy (no hallucinated ROS commands)
+- **Hardware Mandate**: All simulation content must explicitly state the requirement for NVIDIA RTX 4070 Ti (or higher) and Jetson Orin Nano. Standard laptops are NOT supported for Isaac Sim chapters.
 
 **Rationale**: Inaccurate educational content is worse than no content. Students learning incorrect information will struggle in real-world scenarios and lose trust in the platform.
 
@@ -73,7 +74,7 @@ Sync Impact Report:
 - Formatting: Prettier (2 spaces, single quotes, trailing commas)
 
 **Python**:
-- Python 3.11+ required (for enhanced type hints)
+- Python 11+ required (for enhanced type hints)
 - Type hints mandatory for all function signatures
 - Async-first design (all I/O operations use `async/await`)
 - Docstrings (Google style) for all public functions
@@ -373,4 +374,4 @@ Sync Impact Report:
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2025-11-28 | **Last Amended**: 2025-11-28
+**Version**: 1.1.0 | **Ratified**: 2025-11-28 | **Last Amended**: 2025-11-29

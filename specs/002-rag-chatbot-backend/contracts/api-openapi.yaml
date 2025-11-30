@@ -1,0 +1,261 @@
+openapi: 3.1.0
+info:
+  title: RAG Chatbot Backend API
+  description: |
+    Retrieval-Augmented Generation (RAG) API for the Physical AI & Humanoid Robotics textbook.
+    Provides semantic search over textbook content using vector embeddings and OpenAI Agents for answer generation.
+  version: 1.0.0
+  contact:
+    name: Physical AI Platform
+    url: https://github.com/uneezaismail/physical-ai-and-humanoid-robotics
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.physical-ai.com
+    description: Production server (placeholder)
+
+tags:
+  - name: query
+    description: Query endpoints for RAG chatbot
+
+paths:
+  /api/query:
+    post:
+      tags:
+        - query
+      summary: Query textbook content
+      description: |
+        Submit a natural language query about the textbook content. Optionally include selected text for contextual queries.
+        The system embeds the query, searches Qdrant for semantically similar chunks, and generates an answer using OpenAI Agents.
+      operationId: queryRag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              basicQuery:
+                summary: Basic query without selected text
+                value:
+                  query: "What is embodied intelligence in the context of Physical AI?"
+                  selected_text: null
+              contextualQuery:
+                summary: Contextual query with selected text
+                value:
+                  query: "How does this sensor work?"
+                  selected_text: "Intel RealSense D435i"
+      responses:
+        '200':
+          description: Successful query response with answer and source citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+              examples:
+                successfulResponse:
+                  summary: Successful RAG response
+                  value:
+                    answer: "Embodied intelligence refers to AI systems that interact with the physical world through sensors and actuators, as opposed to purely digital AI that processes data in isolation. In Physical AI, the system must perceive its environment, make decisions, and execute actions in real-time."
+                    sources:
+                      - chapter: "Chapter 1: Embodied Intelligence"
+                        section: "01-digital-vs-physical-ai"
+                        filename: "01-digital-vs-physical-ai.mdx"
+                        score: 0.92
+                      - chapter: "Chapter 1: Embodied Intelligence"
+                        section: "02-sensorimotor-loop"
+                        filename: "02-sensorimotor-loop.mdx"
+                        score: 0.87
+        '400':
+          description: Bad request - invalid query format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                queryTooLong:
+                  summary: Query exceeds word limit
+                  value:
+                    detail: "Query exceeds 500 words (has 512)"
+                emptyQuery:
+                  summary: Empty query
+                  value:
+                    detail: "Query cannot be empty"
+        '422':
+          description: Unprocessable entity - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rateLimitExceeded:
+                  summary: Gemini API rate limit hit
+                  value:
+                    detail: "Rate limit exceeded. Please try again in a moment."
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                qdrantUnavailable:
+                  summary: Qdrant connection error
+                  value:
+                    detail: "The knowledge base is temporarily unavailable. Please try again in a moment."
+                embeddingError:
+                  summary: Embedding service error
+                  value:
+                    detail: "Embedding service unavailable"
+
+  /health:
+    get:
+      tags:
+        - system
+      summary: Health check
+      description: Check if the API is running and can connect to dependencies
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  services:
+                    type: object
+                    properties:
+                      qdrant:
+                        type: string
+                        enum: [connected, disconnected]
+                      gemini_api:
+                        type: string
+                        enum: [available, unavailable]
+              example:
+                status: healthy
+                services:
+                  qdrant: connected
+                  gemini_api: available
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          description: User's natural language question (max 500 words)
+          example: "What is the difference between ROS 1 and ROS 2?"
+        selected_text:
+          type: string
+          nullable: true
+          description: Optional selected text from the textbook for contextual queries (max 200 words)
+          example: "NVIDIA Jetson Orin Nano"
+
+    QueryResponse:
+      type: object
+      required:
+        - answer
+        - sources
+      properties:
+        answer:
+          type: string
+          minLength: 1
+          description: Generated answer from OpenAI Agents based on retrieved context
+          example: "ROS 2 improves upon ROS 1 with real-time capabilities, better security, and support for multiple platforms..."
+        sources:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/Source'
+          description: Citations for source chunks used to generate the answer (1-5 sources)
+
+    Source:
+      type: object
+      required:
+        - chapter
+        - section
+        - filename
+        - score
+      properties:
+        chapter:
+          type: string
+          minLength: 1
+          description: Chapter title
+          example: "Chapter 2: Hardware Setup"
+        section:
+          type: string
+          minLength: 1
+          description: Section identifier within chapter
+          example: "01-jetson-orin-nano"
+        filename:
+          type: string
+          minLength: 1
+          description: Source MDX filename
+          example: "01-jetson-orin-nano.mdx"
+        score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Cosine similarity score indicating relevance (0.0 = not similar, 1.0 = identical)
+          example: 0.89
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "Query exceeds 500 words (has 512)"
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                description: Location of the validation error
+              msg:
+                type: string
+                description: Error message
+              type:
+                type: string
+                description: Error type
+          example:
+            - loc: ["body", "query"]
+              msg: "field required"
+              type: "value_error.missing"
