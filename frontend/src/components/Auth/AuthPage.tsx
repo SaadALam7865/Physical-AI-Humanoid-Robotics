@@ -1,5 +1,10 @@
 /**
- * AuthModal - Handles Login, Signup, and Onboarding flows
+ * AuthPage component - handles authentication flow with tabs for signin/signup.
+ */
+
+/**
+ * AuthPage component - Standalone page version of the AuthModal
+ * Uses the same styling and logic as the modal for consistency.
  */
 
 import React, { useState } from 'react';
@@ -7,13 +12,8 @@ import OnboardingWizard, { UserProfile as WizardProfile } from './OnboardingWiza
 import { authClient, signUpWithProfile, type SignupData } from '@/lib/auth-client';
 import styles from './styles.module.css';
 
-interface AuthModalProps {
-  onClose: () => void;
-  initialView?: 'login' | 'signup';
-}
-
-const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' }) => {
-  const [view, setView] = useState<'login' | 'signup' | 'onboarding'>(initialView);
+export const AuthPage: React.FC = () => {
+  const [view, setView] = useState<'login' | 'signup' | 'onboarding'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -34,8 +34,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
       if (error) {
         setError(error.message || 'Login failed');
       } else {
-        onClose();
-        window.location.reload(); // Reload to update UI state
+        // Redirect to home/docs on success
+        window.location.href = "/docs/part-1-foundations-lab/chapter-1-embodied-ai";
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -46,7 +46,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
 
   const handleSignupStep1 = (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic validation
     if (!name || !email || !password) {
       setError("Please fill in all fields");
       return;
@@ -57,7 +56,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
     }
     
     setError(null);
-    setView('onboarding'); // Move to questionnaire
+    setView('onboarding');
   };
 
   const handleOnboardingComplete = async (profileData: WizardProfile) => {
@@ -65,7 +64,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
     setError(null);
 
     try {
-      // Map the wizard profile data to our backend schema
       const signupPayload: SignupData = {
         email,
         password,
@@ -79,8 +77,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
 
       await signUpWithProfile(signupPayload);
       
-      onClose();
-      window.location.reload(); // Reload to update UI state
+      // Redirect to home/docs on success
+      window.location.href = "/docs/part-1-foundations-lab/chapter-1-embodied-ai";
     } catch (err) {
       console.error("Signup error:", err);
       setError(err instanceof Error ? err.message : 'Signup failed');
@@ -89,15 +87,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
     }
   };
 
-  // Stop click propagation to prevent closing when clicking inside modal
-  const handleContentClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modalContent} onClick={handleContentClick}>
-        <button className={styles.closeButton} onClick={onClose}>×</button>
+    <div className={styles.modalOverlay} style={{ position: 'relative', minHeight: '80vh', background: 'transparent' }}>
+      <div className={styles.modalContent}>
+        {/* No close button needed for page version */}
 
         {view === 'login' && (
           <>
@@ -135,8 +128,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
             </form>
 
             <p className={styles.switchMode}>
-              New pilot? 
-              <button className={styles.link} onClick={() => { setError(null); setView('signup'); }}>Initialize System</button>
+              Don't have an account? 
+              <button className={styles.link} onClick={() => { setError(null); setView('signup'); }}>Sign Up</button>
             </p>
           </>
         )}
@@ -187,8 +180,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
             </form>
 
             <p className={styles.switchMode}>
-              Already initialized? 
-              <button className={styles.link} onClick={() => { setError(null); setView('login'); }}>Log In</button>
+              Already have an account? 
+              <button className={styles.link} onClick={() => { setError(null); setView('login'); }}>Sign In</button>
             </p>
           </>
         )}
@@ -211,5 +204,3 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, initialView = 'login' })
     </div>
   );
 };
-
-export default AuthModal;

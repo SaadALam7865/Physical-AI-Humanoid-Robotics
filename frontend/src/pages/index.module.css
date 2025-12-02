@@ -380,7 +380,7 @@
     
     
     /* Hide extra screens and home image on mobile to prevent overlap */
-    .holoScreen, .techChip, .homeImage {
+    .holoScreen, .techChip, .homeImage, .holoCircle {
         display: none;
     }
 }

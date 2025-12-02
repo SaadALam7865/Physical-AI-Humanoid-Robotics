@@ -10,7 +10,7 @@ const config: Config = {
   favicon: "img/home.png",
 
   // Set the production url of your site here
-  url: "https://uneezaismail.github.io",
+  url: "https://physical-ai-humanoid-robotics-eight.vercel.app/",
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: "/",
@@ -35,6 +35,23 @@ const config: Config = {
     mermaid: true,
   },
   themes: ["@docusaurus/theme-mermaid"],
+
+  plugins: [
+    function (context, options) {
+      return {
+        name: "custom-webpack-plugin",
+        configureWebpack(config, isServer, utils) {
+          return {
+            resolve: {
+              alias: {
+                "@": require("path").resolve(__dirname, "./src"),
+              },
+            },
+          };
+        },
+      };
+    },
+  ],
 
   presets: [
     [
@@ -91,10 +108,6 @@ const config: Config = {
     // Navbar configuration
     navbar: {
       title: "Physical AI & Humanoid Robotics ",
-      logo: {
-        alt: "Physical AI Logo",
-        src: "img/logo.svg",
-      },
       items: [
         {
           type: "docSidebar",
@@ -104,18 +117,8 @@ const config: Config = {
           "aria-label": "Navigate to textbook chapters",
         },
         {
-          type: "html",
+          type: "custom-auth-button",
           position: "right",
-          value: `
-            <button class="navAuthButton navLogin" onclick="window.openLoginModal()">Log In</button>
-          `,
-        },
-        {
-          type: "html",
-          position: "right",
-          value: `
-            <button class="navAuthButton navSignup" onclick="window.openSignupModal()">Sign Up</button>
-          `,
         },
         {
           href: "https://github.com/uneezaismail/physical-ai-and-humanoid-robotics",
