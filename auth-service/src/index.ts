@@ -124,7 +124,5 @@ app.use(
 
 // Start server
 app.listen(Number(PORT), "0.0.0.0", () => {                                                                                                          │
-  console.log(`🚀 Auth service running on http://0.0.0.0:${PORT}`);                                                                                  │
-  console.log(`📚 Auth API available at http://0.0.0.0:${PORT}/api/auth`);                                                                           │
-  console.log(`🏥 Health check at http://0.0.0.0:${PORT}/api/auth/health`);
+  console.log("Auth service started");
 });
