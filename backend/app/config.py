@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # Application Configuration
     environment: str = "development"
-    cors_origins: str = "http://localhost:3000,http://localhost:3001"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,https://physical-ai-humanoid-robotics-eight.vercel.app"
     rate_limit_per_minute: int = 100
 
     class Config:
