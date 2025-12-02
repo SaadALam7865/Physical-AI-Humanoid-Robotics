@@ -10,7 +10,10 @@
 
 import { createAuthClient } from "better-auth/react";
 
-const AUTH_URL = process.env.REACT_APP_AUTH_URL || "http://localhost:3002";
+const AUTH_URL =
+  typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:3002"
+    : "https://physical-ai-humanoid-robotics-production-70d6.up.railway.app";
 
 // Define the auth client with configuration
 export const authClient = createAuthClient({
