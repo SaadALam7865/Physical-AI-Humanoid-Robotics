@@ -2,6 +2,8 @@
  * Any global custom CSS goes here
  */
 
+@import './auth.css';
+
 :root {
     --ifm-color-primary: #4de1c1; /* Cyan base */
     --ifm-color-primary-dark: #3bcbb0;

@@ -1,34 +1,35 @@
 import React from 'react';
 import { useAuth } from './AuthContext';
-import styles from './styles.module.css'; // Assuming styles are shared
+import { authClient } from '@/lib/auth-client';
 
 const AuthButton: React.FC = () => {
-  const { user, openLogin, openSignup } = useAuth();
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    await authClient.signOut();
+    window.location.href = "/";
+  };
 
   if (user) {
-    // If logged in, show user name or profile link
     return (
-      <button className={styles.navAuthButton}>
-        Hello, {user.name.split(' ')[0]}!
+      <button 
+        className="navAuthButton navLogin" 
+        onClick={handleLogout}
+        style={{ cursor: 'pointer' }}
+      >
+        Log Out
       </button>
     );
   }
 
   return (
-    <>
-      <button
-        className={`${styles.navAuthButton} ${styles.navLogin}`}
-        onClick={openLogin}
-      >
-        Log In
-      </button>
-      <button
-        className={`${styles.navAuthButton} ${styles.navSignup}`}
-        onClick={openSignup}
-      >
-        Sign Up
-      </button>
-    </>
+    <a 
+      href="/auth" 
+      className="navAuthButton navLogin"
+      style={{ textDecoration: 'none' }}
+    >
+      Sign In
+    </a>
   );
 };
 

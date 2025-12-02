@@ -2,17 +2,20 @@
  * AuthContext - Global state for Authentication
  */
 
-import React, { createContext, useContext, useState } from 'react';
-import { UserProfile } from './OnboardingWizard';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authClient } from '@/lib/auth-client';
 
+// Define a more flexible User type compatible with better-auth
 interface User {
-  name: string;
+  id: string;
   email: string;
-  profile?: UserProfile;
+  name: string;
+  [key: string]: any;
 }
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
   isModalOpen: boolean;
   openLogin: () => void;
   openSignup: () => void;
@@ -23,9 +26,30 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null); // Placeholder for better-auth user
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialView, setInitialView] = useState<'login' | 'signup'>('login');
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const session = await authClient.getSession();
+        if (session.data?.user) {
+          setUser(session.data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch session:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSession();
+  }, []);
 
   const openLogin = () => {
     setInitialView('login');
@@ -42,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isModalOpen, openLogin, openSignup, closeModal, initialView }}>
+    <AuthContext.Provider value={{ user, loading, isModalOpen, openLogin, openSignup, closeModal, initialView }}>
       {children}
     </AuthContext.Provider>
   );
