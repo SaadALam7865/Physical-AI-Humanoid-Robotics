@@ -147,6 +147,10 @@ const config: Config = {
               label: "Chapter 2: Hardware Setup",
               to: "/docs/part-1-foundations-lab/chapter-2-hardware-setup",
             },
+            {
+              label: "Chapter 3: Physical AI Architecture",
+              to: "/docs/part-1-foundations-lab/chapter-3-physical-ai-architecture",
+            },
           ],
         },
         {

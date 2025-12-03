@@ -1,0 +1,161 @@
+---
+id: lab-setup
+title: "Lab: Network Verification"
+description: Verifying connectivity between Workstation and Jetson.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Lab: Network Verification
+
+This is the moment of truth. Before we write any code, we must ensure your distributed brain can talk to itself.
+
+You will need:
+1.  Your Workstation (Ubuntu 22.04)
+2.  Your Jetson Orin Nano (JetPack 6)
+3.  A Wi-Fi 6 Router (Preferred) or a direct Ethernet cable.
+
+## Step 1: Find Your IP Addresses
+
+First, we need to know where everyone lives.
+
+<Tabs>
+<TabItem value="workstation" label="Workstation">
+
+Open a terminal (`Ctrl+Alt+T`) and run:
+
+```bash
+ip addr show
+```
+
+Look for your Wi-Fi interface (usually `wlan0` or `wlp...`).
+Note the `inet` address. Example: `192.168.1.105`.
+
+</TabItem>
+<TabItem value="jetson" label="Jetson Orin">
+
+SSH into your Jetson (or plug in a monitor) and run:
+
+```bash
+ip addr show
+```
+
+Note the `inet` address. Example: `192.168.1.120`.
+
+</TabItem>
+</Tabs>
+
+## Step 2: The Ping Test
+
+Now, let's see if they can hear each other.
+
+From your **Workstation**, ping the Jetson:
+
+```bash
+# Replace with YOUR Jetson's IP
+ping 192.168.1.120 -c 4
+```
+
+**Success Criteria**:
+-   **Packet Loss**: 0%
+-   **Latency (time)**:
+    -   < 5ms (Excellent, Ethernet)
+    -   < 20ms (Good, Wi-Fi 6)
+    -   > 100ms (Bad, move closer to router)
+
+:::danger Network Lag Kills Robots
+If your ping time is >200ms or fluctuating wildly, **do not proceed**.
+ROS 2 relies on a protocol called DDS (Data Distribution Service). It is extremely sensitive to packet loss. If your network is flaky, your robot will stutter, miss commands, and potentially crash.
+:::
+
+## Step 3: Cross-Device "Hello World"
+
+Now that we have connectivity, let's prove we can send data. We will use a simple Python script to simulate a "Heartbeat" from the workstation to the robot.
+
+### The Publisher (Workstation)
+
+This script simulates the "Dreamer" sending a command.
+
+```python title="workstation_heartbeat.py"
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class HeartbeatPublisher(Node):
+    def __init__(self) -> None:
+        super().__init__('heartbeat_publisher')
+        self.publisher_ = self.create_publisher(String, 'heartbeat', 10)
+        timer_period = 1.0  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self) -> None:
+        msg = String()
+        msg.data = f'Workstation says: Hello Jetson! {self.i}'
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.i += 1
+
+def main(args=None) -> None:
+    rclpy.init(args=args)
+    heartbeat_publisher = HeartbeatPublisher()
+    try:
+        rclpy.spin(heartbeat_publisher)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        heartbeat_publisher.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### The Subscriber (Jetson)
+
+This script simulates the "Reflexes" listening for commands.
+
+```python title="jetson_listener.py"
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class HeartbeatSubscriber(Node):
+    def __init__(self) -> None:
+        super().__init__('heartbeat_subscriber')
+        self.subscription = self.create_subscription(
+            String,
+            'heartbeat',
+            self.listener_callback,
+            10)
+        self.subscription  # prevent unused variable warning
+
+    def listener_callback(self, msg: String) -> None:
+        self.get_logger().info(f'I heard: "{msg.data}"')
+
+def main(args=None) -> None:
+    rclpy.init(args=args)
+    heartbeat_subscriber = HeartbeatSubscriber()
+    try:
+        rclpy.spin(heartbeat_subscriber)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        heartbeat_subscriber.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Running the Demo
+
+1.  **Workstation**: Run `python3 workstation_heartbeat.py`
+2.  **Jetson**: Run `python3 jetson_listener.py`
+
+If your network is configured correctly, the Jetson should immediately start printing:
+`[INFO]: I heard: "Workstation says: Hello Jetson! 0"`
+`[INFO]: I heard: "Workstation says: Hello Jetson! 1"`
+
+If it doesn't, check your firewall (`ufw status`) and ensure both machines are on the same subnet.
