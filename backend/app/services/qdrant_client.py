@@ -68,16 +68,16 @@ class QdrantClient:
         Search for points in the Qdrant collection.
         """
         try:
-            # ✅ FIX 1: Use 'query_points' instead of 'search'
+            # ✅ CORRECT METHOD: query_points
             search_result = await self.client.query_points(
                 collection_name=self.collection_name,
-                query=query_vector,  # ✅ FIX 2: Argument name is 'query', not 'query_vector'
-                filter=query_filter, # ✅ FIX 3: Argument name is 'filter', not 'query_filter'
+                query=query_vector,  # ✅ Argument is 'query'
+                query_filter=query_filter,  # ✅ CORRECTED: Argument must be 'query_filter' (not 'filter')
                 limit=limit,
                 with_payload=with_payload,
             )
 
-            # ✅ FIX 4: Access '.points' (the new API returns an object, not a list)
+            # ✅ Access .points and use .model_dump()
             return [hit.model_dump() for hit in search_result.points]
 
         except Exception as e:
