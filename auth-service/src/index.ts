@@ -136,6 +136,26 @@ app.put("/api/auth/profile/:userId", async (req, res) => {
   }
 });
 
+// Custom middleware to log incoming cookies and session status
+app.use("/api/auth/get-session", async (req, res, next) => {
+  console.log("--- DEBUG: GET /api/auth/get-session ---");
+  console.log("Incoming Headers (Cookie):", req.headers.cookie);
+
+  try {
+    // Attempt to get session using better-auth's API directly for logging purposes
+    const session = await auth.api.getSession({
+      headers: req.headers as Record<string, string>, // Pass headers to better-auth
+      // cookies are usually read from headers or req.rawHeaders depending on framework
+    });
+    console.log("Better Auth getSession result (DEBUG):", session.data?.user ? "User found" : "No user found");
+
+  } catch (error) {
+    console.error("DEBUG ERROR during better-auth getSession call:", error);
+  }
+  console.log("-----------------------------------------");
+  next();
+});
+
 // Better Auth endpoints
 // All auth routes will be available at /api/auth/*
 // Explicitly handle OPTIONS for auth routes to ensure CORS headers are sent and request ends there
