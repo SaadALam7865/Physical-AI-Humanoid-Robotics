@@ -26,14 +26,20 @@ const allowedOrigins = [config.frontendUrl, "http://localhost:3000"];
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    console.log(`🔍 CORS Checking Origin: '${origin}'`);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+        console.log("✅ CORS Allowed (No Origin)");
+        return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log(`✅ CORS Allowed: ${origin}`);
       return callback(null, true);
     }
     
-    console.warn(`⚠️ CORS Blocked Origin: ${origin}`);
+    console.warn(`⚠️ CORS Blocked Origin: '${origin}'`);
     console.log(`   Allowed Origins: ${allowedOrigins.join(", ")}`);
     return callback(new Error('Not allowed by CORS'));
   },
@@ -132,7 +138,16 @@ app.put("/api/auth/profile/:userId", async (req, res) => {
 
 // Better Auth endpoints
 // All auth routes will be available at /api/auth/*
-app.all("/api/auth/*", toNodeHandler(auth));
+// Explicitly handle OPTIONS for auth routes to ensure CORS headers are sent and request ends there
+app.options("/api/auth/*", cors(corsOptions));
+
+app.all("/api/auth/*", (req, res, next) => {
+  // If it's an OPTIONS request, it should have been handled above, but just in case:
+  if (req.method === "OPTIONS") {
+    return next();
+  }
+  return toNodeHandler(auth)(req, res);
+});
 
 // Error handling middleware
 app.use(
