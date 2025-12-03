@@ -1,0 +1,37 @@
+---
+id: physical-ai-summary
+title: Summary
+---
+
+# Summary
+
+In this chapter, we moved from the abstract concept of "Embodied AI" to the concrete hardware architecture required to build it. You learned that Physical AI isn't just about running code; it's about managing a distributed system across three distinct tiers of compute.
+
+### Key Takeaways
+
+-   **The 3-Tier Architecture**:
+    -   **Tier 1 (Workstation)**: The "Dreamer." Infinite compute, offline training, simulation (Isaac Sim).
+    -   **Tier 2 (Edge/Jetson)**: The "Reflexes." Low latency, onboard inference, real-time safety.
+    -   **Tier 3 (Robot)**: The "Body." Actuators and sensors that interact with physics.
+-   **Sim-to-Real Gap**: The reality gap is caused by imperfect physics modeling and sensor noise. We mitigate this with Domain Randomization.
+-   **Data Gravity**: High-bandwidth data (video) must be processed at the edge. Only high-level logic (commands) or low-bandwidth telemetry goes to the cloud.
+-   **Network Verification**: `ping` is your first diagnostic tool. If you can't ping it, ROS 2 can't discover it.
+
+### Exercises
+
+To confirm your understanding, complete the following conceptual check:
+
+1.  **Ping your Jetson from your workstation**:
+    -   Find the IP address of your Jetson (`ip addr show` on the Jetson).
+    -   Run `ping <jetson_ip>` from your workstation.
+    -   **Success Criteria**: Latency should be &lt;10ms on a local Wi-Fi 6 network.
+
+
+2.  **List 3 tasks best done in simulation vs. real hardware**:
+    -   *Think about safety, cost, and speed.*
+    -   **Simulation**: 1. Reinforcement Learning (millions of trials), 2. Testing crash scenarios, 3. Prototyping robot morphology.
+    -   **Real Hardware**: 1. Final sensor calibration, 2. Testing battery life/thermals, 3. Verifying real-world lighting conditions.
+
+### What's Next?
+
+Now that we have our architecture mapped out and our devices talking, it's time to install the "nervous system" that connects them. In **Chapter 4**, we will dive into **ROS 2 (Robot Operating System)**, installing it on both your workstation and your Jetson, and writing your first production-grade nodes.

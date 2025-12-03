@@ -1,0 +1,45 @@
+---
+id: physical-ai-architecture
+title: "Physical AI Architecture: From Cloud to Edge"
+description: "Understanding the 3-tier hardware architecture of embodied intelligence."
+sidebar_position: 3
+---
+
+# Physical AI Architecture: From Cloud to Edge
+
+## Learning Objectives
+
+By the end of this chapter, you will be able to:
+
+-   **Diagram the 3-tier architecture** (Workstation/Cloud, Edge, Robot) and explain the role of each layer.
+-   **Explain the Sim-to-Real workflow**, identifying where simulation ends and reality begins.
+-   **Identify the data flow** from sensors to actuators and why bandwidth constraints dictate architecture.
+-   **Verify network connectivity** between your workstation and edge device.
+-   **Execute a cross-device ROS 2 application** to prove your "nervous system" is functional.
+
+## Why Your Laptop Isn't Enough
+
+In traditional software engineering, you write code on a laptop, deploy it to a server (AWS/Azure), and users access it via a browser. The "server" has infinite power, and the "client" is just a display.
+
+**Robotics is different.**
+
+A robot is a server, a client, and a physics engine all rolled into one battery-powered package. It cannot rely on the cloud for its reflexes—if your internet connection drops for 500ms, a chatbot just pauses, but a walking robot falls over and breaks a $2,000 motor.
+
+This necessitates a distributed architecture where intelligence is split between:
+1.  **Training & Simulation** (Infinite Compute, Offline)
+2.  **Inference & Control** (Limited Compute, Real-time)
+
+To build this, we need specific hardware.
+
+:::danger Hardware Requirement
+**Standard laptops will NOT work for this chapter's simulation components.**
+
+To follow the "Digital Twin" portions of this course, you **MUST** have a workstation with:
+-   **NVIDIA RTX 4070 Ti (12GB VRAM)** or higher.
+-   **Ubuntu 22.04 LTS** (Native or distinct drive, WSL2 is experimental for GUI apps).
+
+For the "Physical Twin" portions, you need:
+-   **NVIDIA Jetson Orin Nano** (8GB) or Orin NX.
+:::
+
+Let's explore how these pieces fit together.

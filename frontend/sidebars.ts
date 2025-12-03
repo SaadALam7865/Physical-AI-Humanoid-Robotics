@@ -59,6 +59,24 @@ const sidebars: SidebarsConfig = {
             "part-1-foundations-lab/chapter-2-hardware-setup/hardware-chapter-summary",
           ],
         },
+        {
+          type: "category",
+          label: "Chapter 3: Physical AI Architecture",
+          collapsible: true,
+          collapsed: false,
+          link: {
+            type: "doc",
+            id: "part-1-foundations-lab/chapter-3-physical-ai-architecture/physical-ai-architecture",
+          },
+          items: [
+            "part-1-foundations-lab/chapter-3-physical-ai-architecture/physical-ai-architecture",
+            "part-1-foundations-lab/chapter-3-physical-ai-architecture/three-tier-architecture",
+            "part-1-foundations-lab/chapter-3-physical-ai-architecture/sim-to-real-workflow",
+            "part-1-foundations-lab/chapter-3-physical-ai-architecture/data-flow",
+            "part-1-foundations-lab/chapter-3-physical-ai-architecture/lab-setup",
+            "part-1-foundations-lab/chapter-3-physical-ai-architecture/physical-ai-summary",
+          ],
+        },
       ],
     },
     // Future parts (Part II-V) will be added here as content is developed
