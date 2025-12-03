@@ -23,7 +23,7 @@ export const auth = betterAuth({
   database: pool,
 
   // Trusted Origins (Fixes "Invalid origin" error)
-  trustedOrigins: [config.frontendUrl],
+  trustedOrigins: [config.frontendUrl, "http://localhost:3000"],
 
   // Email and password authentication
   emailAndPassword: {

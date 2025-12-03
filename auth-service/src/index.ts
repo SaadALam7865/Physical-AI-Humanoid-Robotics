@@ -20,12 +20,32 @@ const PORT = config.port;
 
 // Middleware
 app.use(express.json());
-app.use(
-  cors({
-    origin: config.frontendUrl,
-    credentials: true,
-  })
-);
+
+// CORS Configuration
+const allowedOrigins = [config.frontendUrl, "http://localhost:3000"];
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    console.warn(`⚠️ CORS Blocked Origin: ${origin}`);
+    console.log(`   Allowed Origins: ${allowedOrigins.join(", ")}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+};
+
+app.use(cors(corsOptions));
+
+// Handle OPTIONS preflight for all routes explicitly (sometimes helps with strict proxies)
+app.options("*", cors(corsOptions));
 
 // Root endpoint for Railway health check
 app.get("/", (_req, res) => {
