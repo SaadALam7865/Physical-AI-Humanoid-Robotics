@@ -3,6 +3,10 @@
     {
       "source": "/api/auth/:match*",
       "destination": "https://physical-ai-humanoid-robotics-production-70d6.up.railway.app/api/auth/:match*"
+    },
+    {
+      "source": "/api/chat/:match*",
+      "destination": "https://physical-ai-humanoid-robotics-production.up.railway.app/api/chat/:match*"
     }
   ]
 }

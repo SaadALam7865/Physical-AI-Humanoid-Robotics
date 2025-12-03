@@ -1,7 +1,7 @@
-import os
 import asyncio
 import logging
-from typing import List, Dict, Any
+import os
+from typing import Any, Dict, List
 
 from qdrant_client import AsyncQdrantClient, models
 
@@ -25,7 +25,9 @@ class QdrantClient:
 
         logger.info(f"Initialized QdrantClient for collection: {self.collection_name}")
 
-    async def recreate_collection(self, vector_size: int = 768, on_disk_payload: bool = True):
+    async def recreate_collection(
+        self, vector_size: int = 768, on_disk_payload: bool = True
+    ):
         """
         Recreate the Qdrant collection, deleting if it exists.
         This is useful for fresh ingestion.
@@ -33,8 +35,10 @@ class QdrantClient:
         logger.info(f"Recreating Qdrant collection: {self.collection_name}")
         await self.client.recreate_collection(
             collection_name=self.collection_name,
-            vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
-            on_disk_payload=on_disk_payload
+            vectors_config=models.VectorParams(
+                size=vector_size, distance=models.Distance.COSINE
+            ),
+            on_disk_payload=on_disk_payload,
         )
         logger.info(f"Qdrant collection {self.collection_name} recreated successfully.")
 
@@ -58,29 +62,30 @@ class QdrantClient:
         query_vector: List[float],
         limit: int = 5,
         query_filter: models.Filter = None,
-        with_payload: bool = True
+        with_payload: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         Search for points in the Qdrant collection.
         """
         try:
-            search_result = await self.client.search(
+            # ✅ FIX 1: Use 'query_points' instead of 'search'
+            search_result = await self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
-                query_filter=query_filter,
+                query=query_vector,  # ✅ FIX 2: Argument name is 'query', not 'query_vector'
+                filter=query_filter, # ✅ FIX 3: Argument name is 'filter', not 'query_filter'
                 limit=limit,
                 with_payload=with_payload,
             )
-            return [hit.dict() for hit in search_result]
+
+            # ✅ FIX 4: Access '.points' (the new API returns an object, not a list)
+            return [hit.model_dump() for hit in search_result.points]
+
         except Exception as e:
             logger.error(f"Failed to search Qdrant: {str(e)}")
             raise
 
     async def search_textbook(
-        self,
-        query: str,
-        filter_unit: str = None,
-        limit: int = 5
+        self, query: str, filter_unit: str = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
         """
         Retrieves technical content from the Physical AI textbook using hybrid search.
@@ -93,7 +98,9 @@ class QdrantClient:
         Returns:
             JSON string containing list of matches with 'content', 'page_id', and 'relevance_score'.
         """
-        from app.services.embeddings import embedding_service # Import locally to avoid circular dependency
+        from app.services.embeddings import (
+            embedding_service,  # Import locally to avoid circular dependency
+        )
 
         try:
             # 1. Generate Embedding
@@ -105,8 +112,7 @@ class QdrantClient:
                 qdrant_filter = models.Filter(
                     must=[
                         models.FieldCondition(
-                            key="source_file",
-                            range=models.MatchText(text=filter_unit)
+                            key="source_file", range=models.MatchText(text=filter_unit)
                         )
                     ]
                 )
@@ -118,25 +124,27 @@ class QdrantClient:
                 query_vector=query_vector,
                 query_filter=qdrant_filter,
                 limit=limit,
-                with_payload=True
+                with_payload=True,
             )
 
             # Reformat results to match the expected 'content', 'page_id', 'relevance_score'
             formatted_results = []
             for r in results:
-                payload = r.get('payload', {})
+                payload = r.get("payload", {})
                 # Extract chapter/topic path for citation
-                source_file_path = payload.get('source_file', 'N/A')
+                source_file_path = payload.get("source_file", "N/A")
                 # Example: ../frontend/docs/01-part-1-foundations-lab/01-chapter-1-embodied-ai/00-intro.mdx
                 # Convert to frontend-friendly path for user display
-                frontend_path = source_file_path.replace('../frontend/docs/', '')
+                frontend_path = source_file_path.replace("../frontend/docs/", "")
 
-                formatted_results.append({
-                    "content": payload.get('content', 'N/A'),
-                    "page_id": frontend_path, # This will be the path for the user to navigate
-                    "header": payload.get('header', 'N/A'),
-                    "relevance_score": r.get('score', 0.0)
-                })
+                formatted_results.append(
+                    {
+                        "content": payload.get("content", "N/A"),
+                        "page_id": frontend_path,  # This will be the path for the user to navigate
+                        "header": payload.get("header", "N/A"),
+                        "relevance_score": r.get("score", 0.0),
+                    }
+                )
 
             return formatted_results
 
