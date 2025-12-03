@@ -21,6 +21,7 @@ interface AuthContextType {
   openSignup: () => void;
   closeModal: () => void;
   initialView: 'login' | 'signup';
+  refreshUser: () => Promise<void>; // Added refreshUser function
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,25 +32,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialView, setInitialView] = useState<'login' | 'signup'>('login');
 
-  useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const session = await authClient.getSession();
-        if (session.data?.user) {
-          setUser(session.data.user);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Failed to fetch session:", error);
+  const fetchSession = async () => {
+    try {
+      const session = await authClient.getSession();
+      if (session.data?.user) {
+        setUser(session.data.user);
+      } else {
         setUser(null);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch session:", error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchSession();
   }, []);
+
+  const refreshUser = async () => { // Implemented refreshUser
+    setLoading(true); // Set loading while refetching
+    await fetchSession();
+  };
 
   const openLogin = () => {
     setInitialView('login');
@@ -66,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isModalOpen, openLogin, openSignup, closeModal, initialView }}>
+    <AuthContext.Provider value={{ user, loading, isModalOpen, openLogin, openSignup, closeModal, initialView, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

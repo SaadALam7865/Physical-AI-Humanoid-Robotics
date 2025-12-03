@@ -6,6 +6,7 @@
 
 import React, { useState } from "react";
 import { authClient, type SignInData } from "@/lib/auth-client";
+import { useAuth } from "./AuthContext"; // Import useAuth
 
 interface SignInFormProps {
   onSuccess?: () => void;
@@ -13,6 +14,7 @@ interface SignInFormProps {
 }
 
 export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess, onError }) => {
+  const { refreshUser } = useAuth(); // Use refreshUser from context
   const [formData, setFormData] = useState<SignInData>({
     email: "",
     password: "",
@@ -37,7 +39,8 @@ export const SignInForm: React.FC<SignInFormProps> = ({ onSuccess, onError }) =>
         onRequest: () => {
           // Optional: loading state handled locally
         },
-        onSuccess: () => {
+        onSuccess: async () => { // Make onSuccess async
+          await refreshUser(); // Refresh user state after successful login
           onSuccess?.();
         },
         onError: (ctx) => {

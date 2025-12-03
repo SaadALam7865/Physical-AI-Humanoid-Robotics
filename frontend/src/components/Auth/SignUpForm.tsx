@@ -10,6 +10,7 @@
 
 import React, { useState } from "react";
 import { authClient, type SignupData } from "@/lib/auth-client";
+import { useAuth } from "./AuthContext"; // Import useAuth
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -17,6 +18,7 @@ interface SignUpFormProps {
 }
 
 export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onError }) => {
+  const { refreshUser } = useAuth(); // Use refreshUser from context
   const [formData, setFormData] = useState<SignupData>({
     email: "",
     password: "",
@@ -67,6 +69,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onError }) =>
       });
 
       console.log("Signup successful!", result);
+      await refreshUser(); // Refresh user state after successful signup
       onSuccess?.();
     } catch (err) {
       console.error("Signup error:", err);
