@@ -1,0 +1,11 @@
+[project]
+name = "spec-driven-online-hackathon-1"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "agents>=1.4.0",
+    "dotenv>=0.9.9",
+    "openai-agents>=0.6.2",
+]

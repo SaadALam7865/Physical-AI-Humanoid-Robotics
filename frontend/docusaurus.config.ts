@@ -16,7 +16,7 @@ const config: Config = {
   baseUrl: "/",
 
   // GitHub pages deployment config.
-  organizationName: "uneezaismail", // GitHub username
+  organizationName: "Saad Alam", // GitHub username
   projectName: "physical-ai-and-humanoid-robotics", // Repo name
 
   onBrokenLinks: "warn", // Temporarily warn instead of throw during development
@@ -121,7 +121,7 @@ const config: Config = {
           position: "right",
         },
         {
-          href: "https://github.com/uneezaismail/physical-ai-and-humanoid-robotics",
+          href: "https://github.com/SaadALam7865/Physical-AI-Humanoid-Robotics",
           label: "GitHub",
           position: "right",
         },
@@ -171,7 +171,7 @@ const config: Config = {
           items: [
             {
               label: "GitHub",
-              href: "https://github.com/uneezaismail/physical-ai-and-humanoid-robotics",
+              href: "https://github.com/SaadALam7865/Physical-AI-Humanoid-Robotics",
             },
           ],
         },
