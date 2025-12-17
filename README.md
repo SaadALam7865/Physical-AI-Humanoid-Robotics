@@ -55,7 +55,7 @@ graph TD
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/uneezaismail/Physical-AI-Humanoid-Robotics.git
+
 cd Physical-AI-Humanoid-Robotics
 ```
 

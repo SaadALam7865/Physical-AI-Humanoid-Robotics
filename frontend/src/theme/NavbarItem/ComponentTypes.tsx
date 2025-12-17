@@ -5,3 +5,5 @@ export default {
   ...ComponentTypes,
   'custom-auth-button': AuthButton,
 };
+
+
